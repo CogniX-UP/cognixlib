@@ -22,18 +22,17 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
-from cognixcore import *
-from setup_cython_untested import *
+from cognixlib import *
 from importlib.metadata import metadata
 
 # -- Project information -----------------------------------------------------
 
-project = 'cognixcore'
+project = 'cognixlib'
 copyright = '2024, CogniX'
 author = 'CogniX'
 
 # The full version, including alpha/beta/rc tags
-release = f"v{ metadata('cognixcore')['version'] }"
+release = f"v{ metadata('cognixlib')['version'] }"
 version = release
 
 # -- General configuration ---------------------------------------------------
@@ -54,7 +53,7 @@ extensions = [
 ]
 
 # might test this later
-autoapi_dirs = ['../../cognixcore'] # sphinx-build -b html . _build
+autoapi_dirs = ['../../cognixlib'] # sphinx-build -b html . _build
 autoapi_type = "python"
 # og list ['members', 'undoc-members', 'private-members', 'show-inheritance', 'show-module-summary', 'special-members', 'imported-members',]
 # we won't be including the imported members here

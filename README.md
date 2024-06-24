@@ -2,7 +2,7 @@
   <img src="./docs/img/logo.png" alt="drawing" width="70%"/>
 </p>
 
-Cognixlib is a python package and library designed to help with the offline or online analysis of EEG and Eye-Gaze signals. It emerged as a deliverable of the [CogniX](http://www.cognix.gr) project. It provides a scripting API that helps in the manipulation, filtering or general transformation of various kind of biophysical signals, currently specialized for EEG and Eye-Gaze. It also provides a node-based API created using the scripting API and [cognixcore](https://github.com/CogniX-Up/cognixcore). The original commit history can be found in a [fork](https://github.com/HeftyCoder/Ryven/tree/cognix). After initial development it was moved ton this standalone repository. Much of the library is still being tested and improved on, so you can expect breaking changes.
+Cognixlib is a python package and library designed to help with the offline or online analysis of EEG and Eye-Gaze signals. It emerged as a deliverable of the [CogniX](http://www.cognix.gr) project. It provides a scripting API that helps in the manipulation, filtering or general transformation of various kind of biophysical signals, currently specialized for EEG and Eye-Gaze. It also provides a node-based API created using the scripting API and [cognixcore](https://github.com/CogniX-Up/cognixcore). The original commit history can be found in a [fork](https://github.com/HeftyCoder/Ryven/tree/cognix). After initial development it was moved to this standalone repository. Much of the library is still being tested and improved on, so you can expect breaking changes.
 
 ### Installation
 
@@ -29,6 +29,7 @@ The main features include
 - Segment a signal based on time-markers or windows with overlaps.
 - Train, test and deploy machine learning algorithms through an easy-to-setup API.
 - Utilize all the above in a scripting manner or through a nodes library designed to work with [cognixcore](https://github.com/CogniX-Up/cognixcore) and [cognix-editor](https://github.com/CogniX-Up/cognix-editor)
+- Can help in the creation of real-time BCI applications.
 
 ### Licensing
 

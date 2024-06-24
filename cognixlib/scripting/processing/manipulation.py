@@ -4,7 +4,7 @@ or simple windowing.
 """
 from __future__ import annotations
 from ..data.signals import TimeSignal, SignalKey
-from ..data.circ_buffer import CircularBuffer
+from ..data._circ_buffer import CircularBuffer
 from numpy import full, nan, float64, ndarray
 from collections.abc import Sequence, Iterable, Mapping
 from abc import ABC, abstractmethod

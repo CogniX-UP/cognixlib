@@ -1,25 +1,29 @@
 import numpy as np
 from collections.abc import Sequence
+from typing import Self
 
 _default_dts_err_scale=2
 
-# TODO Fifx this class to not need to transpose the data before it enters
 class CircularBuffer:
     """
     An implementation of a circular buffer for handling data and timestamps
     
-    This buffer was made with data x times format, but since then, we have
-    decided on a times x data format. Hence, this might need to be changed.
+    This buffer expects incoming data in a time x sample format. Internally, it works
+    with a sample x time format. However, this is transposed. This design is to ensure
+    seamless cooperation betweent his class and the :mod:`cognixlib.scripting.data.signals`
+    classes.
     """
     
     @classmethod
-    def create(cls, data: np.ndarray, timestamps: np.ndarray):
+    def create(cls, data: np.ndarray, timestamps: np.ndarray) -> Self:
+        """Creates a CircularBuffer based on some data and timestamps."""
         result = CircularBuffer(1, 1, 1, 1, False)
         result.reset(data, timestamps)
         return result
     
     @classmethod
-    def empty(cls):
+    def empty(cls) -> Self:
+        """Creates an empty Circular Buffer."""
         return CircularBuffer(1, 1, 1, 1, False)
         
     def __init__(
@@ -48,6 +52,7 @@ class CircularBuffer:
         self.total_intervals = 0
     
     def reset(self, data: np.ndarray, timestamps: np.ndarray):
+        """Resets the bufer with spefici data and timestamps"""
         self.timestamps = timestamps
         self.duration = timestamps[-1] - timestamps[0]
         self.tloop = timestamps[-1]
@@ -56,17 +61,17 @@ class CircularBuffer:
         self.data = data.T
     
     @property
-    def size(self):
+    def size(self) -> int:
         return len(self.timestamps)
     
     @property
-    def effective_dts(self):
+    def effective_dts(self) -> float:
         if self.effective_srate == 0:
             return 0
         return 1 / self.effective_srate
     
     @property
-    def current_time(self):
+    def current_time(self) -> float:
         return self.timestamps[self.current_index]
     
     def append_expand(
@@ -112,7 +117,7 @@ class CircularBuffer:
         """
         Appends data and corresponding timestamps to the buffer
         
-        When get_looped_data=True, it returns a tuple of (data, timestamps) 
+        When :code:`get_looped_data=True`, it returns a tuple of (data, timestamps) 
         if the buffer has looped, else None.
         """
         
@@ -167,8 +172,13 @@ class CircularBuffer:
         timestamp: float, 
         error_margin=0.0,
         dts_error_scale=_default_dts_err_scale,
-    ):
-        """Finds closest index of the buffer based on a timestamp"""
+    ) -> tuple[int, bool]:
+        """
+        Finds closest index of the buffer based on a timestamp
+        
+        Returns a (int, bool) tuple, where int is the index and
+        bool is whether and overflow has occured.
+        """
 
         tc = self.timestamps[self.current_index]
         tx = timestamp
@@ -267,7 +277,7 @@ class CircularBuffer:
         offsets: tuple[float, float], 
         error_margin=0.0,
         dts_err_scale=_default_dts_err_scale
-    ):
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[None, None]:
         """Extracts a segment around the current time"""
         return self.segment_index(self.current_index, offsets, error_margin, dts_err_scale)
     
@@ -277,7 +287,7 @@ class CircularBuffer:
         offsets: tuple[float, float], 
         error_margin=0.0,
         dts_err_scale=_default_dts_err_scale
-    ):
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[None, None]:
         """
         Extracts a segment of the buffer based around a 
         global timestamp and relative offsets.

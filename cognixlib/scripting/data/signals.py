@@ -1,4 +1,5 @@
-"""Defines the core functionalities and data types for Cognix"""
+"""Defines the core functionalities and data types for :code:`cognixlib`"""
+
 from __future__ import annotations
 from collections.abc import Sequence
 from .mixin import *
@@ -79,17 +80,17 @@ class Signal:
         self._unique_key = SignalKey(self)
     
     @property
-    def unique_key(self):
+    def unique_key(self) -> SignalKey:
         """A unique identifier for this signal instance"""
         return self._unique_key
     
     @property
-    def info(self):
+    def info(self) -> SignalInfo:
         """Metadata information regarding the signal"""
         return self._info
     
     @property
-    def data(self):
+    def data(self) -> np.ndarray:
         return self._data
     
     def __str__(self):
@@ -131,6 +132,12 @@ class Signal:
         return other.data if isinstance(other, Signal) else other
     
     def copy(self, copydata=True):
+        """
+        Shallow copy of the signal
+        
+        Returns a copy of the signal. If :code:`copydata` is True,
+        then the data is copied.
+        """
         new_sig = copy(self)
         new_sig._unique_key = SignalKey(self)
         if copydata:
@@ -138,27 +145,8 @@ class Signal:
         return new_sig
     
     def deepcopy(self):
-        return deepcopy(self)
-    
-    def filter_rows(self, condition: np.ndarray):
-        """
-        Filters the rows based on a numpy condition
-        
-        If the condition is not met, the whole row will be removed
-        """
-        rows_to_keep = np.where(np.all(condition, axis=1))[0]
-        new_data = self.data[rows_to_keep, :]
-        return Signal(new_data, self.info)
-    
-    def filter_columns(self, condition: np.ndarray):
-        """
-        Filters the columns based on a numpy condition
-        
-        If the condition is not met, the whole column will be removed
-        """
-        cols_to_keep = np.where(np.all(condition, axis=0))[0]
-        new_data = self.data[:, cols_to_keep]
-        return Signal(new_data, self.info)           
+        """Returns a deep copy of the signal"""
+        return deepcopy(self)        
 
 class TimeSignal(Signal, Timestamped):
     """
@@ -171,6 +159,7 @@ class TimeSignal(Signal, Timestamped):
     
     @classmethod
     def concat(*signals: TimeSignal, axis=0):
+        """Concatenates multiple :code:`TimeSignal` (s) together."""
         if len(signals) == 1:
             return signals[0]
         
@@ -233,7 +222,7 @@ class TimeSignal(Signal, Timestamped):
         self._time_datamap = TimeSignal.DataMap(data, timestamps, signal_info)
     
     @property
-    def data(self):
+    def data(self) -> np.ndarray:
         return self._data
     
     @data.setter
@@ -242,7 +231,7 @@ class TimeSignal(Signal, Timestamped):
         self._time_datamap.data = value
         
     @property
-    def timestamps(self):
+    def timestamps(self) -> np.ndarray:
         return self._timestamps
     
     @timestamps.setter
@@ -251,16 +240,16 @@ class TimeSignal(Signal, Timestamped):
         self._time_datamap.timestamps = value
         
     @property
-    def time_datamap(self):
+    def time_datamap(self) -> DataMap:
         """Retrieves an object with mapped indices from timestamps to data"""
         return self._time_datamap
     
     @property
-    def tdm(self):
+    def tdm(self) -> DataMap:
         """Shorthand for time_datamap"""
         return self.time_datamap
     
-    def copy(self, copydata=True):
+    def copy(self, copydata=True) -> TimeSignal:
         new_sig = super().copy(copydata)
         new_sig._time_datamap = TimeSignal.DataMap(
             new_sig.data, 
@@ -293,7 +282,10 @@ class LabeledSignal(Signal, Labeled):
     
     @classmethod
     def concat(self, *signals: LabeledSignal, axis=0):
-        
+        """
+        Concatenates multiple :code:`LabeledSignal` (s). For a vertical 
+        concatentation, the labels must be the same between the signals.
+        """
         if len(signals) == 1:
             return signals[0]
         
@@ -332,7 +324,8 @@ class LabeledSignal(Signal, Labeled):
             self.labels = labels
         
         @property
-        def labels(self):
+        def labels(self) -> np.ndarray:
+            """A ndarray of strings which holds the labels."""
             return self._labels
         
         @labels.setter
@@ -417,16 +410,16 @@ class LabeledSignal(Signal, Labeled):
         self._label_datamap.labels = value
     
     @property
-    def label_datamap(self):
+    def label_datamap(self) -> DataMap:
         """Retrieves an object with mapped indices from labels to data"""
         return self._label_datamap
 
     @property
-    def ldm(self):
+    def ldm(self) -> DataMap:
         """Shorthand for label_datamap"""
         return self.label_datamap
     
-    def copy(self, copydata=True):
+    def copy(self, copydata=True) -> LabeledSignal:
         new_sig = super().copy(copydata)
         new_sig._label_datamap = LabeledSignal.DataMap(
             new_sig.data,
@@ -473,10 +466,12 @@ class StreamSignalInfo(SignalInfo, StreamConfig):
     
     @property
     def data_format_np(self):
+        """Returns the data format of this info, based on numpy convention."""
         return str_to_np[self.data_format]
     
     @property
     def data_format_lsl(self):
+        """Returns the data format of this info, based on LSL convention."""
         return lsl_to_np[self.data_format]
         
 class StreamSignal(TimeSignal, LabeledSignal):
@@ -511,10 +506,10 @@ class StreamSignal(TimeSignal, LabeledSignal):
         self._info = signal_info
     
     @property
-    def info(self):
+    def info(self) -> StreamSignalInfo:
         return self._info
     
-    def copy(self, copydata=True):
+    def copy(self, copydata=True) -> StreamSignal:
         new_sig: StreamSignal = Signal.copy(self, copydata)
         new_sig._label_datamap = LabeledSignal.DataMap(
             new_sig.data,
@@ -542,7 +537,8 @@ class StreamSignal(TimeSignal, LabeledSignal):
 class FeatureSignal(LabeledSignal):
     """
     Represents a signal whose rows correspond to a feature class
-    and whose columns correspond to a feature label 
+    and whose columns correspond to a feature label. Can be used
+    for machine learning purposes.
     """
     
     @classmethod
@@ -717,12 +713,12 @@ class FeatureSignal(LabeledSignal):
             self._class_datamap = classes_datamap
             
     @property
-    def class_datamap(self):
+    def class_datamap(self) -> DataMap:
         """Map from the classes to the portion of the signal"""
         return self._class_datamap
     
     @property
-    def cdm(self):
+    def cdm(self) -> DataMap:
         """Shorthand for class_datamap"""
         return self._class_datamap
     

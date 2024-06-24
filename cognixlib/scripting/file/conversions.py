@@ -1,3 +1,8 @@
+"""
+Defines various data conversions for writing to an XDF file.
+Might revisit later.
+"""
+
 import struct
 import numpy as np
 import io
