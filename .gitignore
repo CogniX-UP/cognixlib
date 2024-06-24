@@ -1,0 +1,17 @@
+.idea/
+.vscode/
+.qt_for_python/
+__pycache__/
+venv/
+temp/
+code_gen/
+__own__/
+build/
+dist/
+*.egg-info
+tests/data
+docs/build
+
+ryvencore-drawio.xml
+
+
