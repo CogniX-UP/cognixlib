@@ -2,7 +2,7 @@
   <img src="./docs/img/logo.png" alt="drawing" width="70%"/>
 </p>
 
-Cognixlib is a python package and library designed to help with the offline or online analysis of EEG and Eye-Gaze signals. It emerged as a deliverable of the [CogniX](www.cognix.gr) project. It provides a scripting API that helps in the manipulation, filtering or general transformation of various kind of biophysical signals, currently specialized for EEG and Eye-Gaze. It also provides a node-based API created using the scripting API and [cognixcore](https://github.com/CogniX-Up/cognixcore). The original commit history can be found in a [fork](https://github.com/HeftyCoder/Ryven/tree/cognix). After initial development it was moved ton this standalone repository. Much of the library is still being tested and improved on, so you can expect breaking changes.
+Cognixlib is a python package and library designed to help with the offline or online analysis of EEG and Eye-Gaze signals. It emerged as a deliverable of the [CogniX](http://www.cognix.gr) project. It provides a scripting API that helps in the manipulation, filtering or general transformation of various kind of biophysical signals, currently specialized for EEG and Eye-Gaze. It also provides a node-based API created using the scripting API and [cognixcore](https://github.com/CogniX-Up/cognixcore). The original commit history can be found in a [fork](https://github.com/HeftyCoder/Ryven/tree/cognix). After initial development it was moved ton this standalone repository. Much of the library is still being tested and improved on, so you can expect breaking changes.
 
 ### Installation
 
