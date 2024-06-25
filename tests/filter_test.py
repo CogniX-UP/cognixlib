@@ -25,11 +25,14 @@ import numpy as np
 import time
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+from joblib import parallel_backend
+from concurrent.futures import ThreadPoolExecutor
+from threading import Thread
 
 fs = 2048
 t = fs * 2
-times = 16
-channel_in = np.longdouble(35 * np.random.rand(t, times))
+channels = 32
+channel_in = np.longdouble(35 * np.random.rand(t, channels))
 print(channel_in.shape)
 
 h = create_filter(
@@ -43,27 +46,43 @@ h = create_filter(
 )
 
 t0 = time.perf_counter()
-mne_res = _overlap_add_filter(channel_in.T, h, phase="zero",n_jobs=-1)
+# this is much faster due to subprocess copying data
+with parallel_backend('threading'):
+    mne_res = _overlap_add_filter(channel_in.T, h, phase="zero",n_jobs=-1)
 t1 = time.perf_counter()
 print(f"MNE RES: {t1-t0}")
 
 t0 = time.perf_counter()
-sci_res = np.zeros((t, times))
-for i in range(times):
+sci_res = np.zeros((t, channels))
+for i in range(channels):
     sci_res[:,i] = oaconvolve(channel_in[:,i], h, mode="same")
 t1 = time.perf_counter()
 print(f"SCI RES: {t1-t0}")
 
-step = 512
-real_res = np.zeros((t, times))
-firs = [FIRfilter(blockSize=step, h=h, normalize=False) for i in range(times)]
+t0 = time.perf_counter()
+t_l: list[Thread] = []
+for i in range(channels):
+    def do():
+        sci_res[:, i] = oaconvolve(channel_in[:, i], h, mode='same')
+    thr = Thread(target=do)
+    thr.start()
+    t_l.append(thr)
+
+for thr in t_l:
+    thr.join()
+t1 = time.perf_counter()
+print(f"SCI RES Threads: {t1-t0}")
+    
+step = 2048
+real_res = np.zeros((t, channels))
+firs = [FIRfilter(blockSize=step, h=h, normalize=False) for i in range(channels)]
 frame_start = 0
 frame_end = step
 t0 = time.perf_counter()
 index = 0
 while frame_end <= channel_in.shape[0]:
     index += 1
-    for i in range(times):
+    for i in range(channels):
         res = firs[i].process(channel_in[:,i][frame_start:frame_end])
         real_res[:,i][frame_start:frame_end] = res
     frame_start = frame_end
@@ -72,16 +91,18 @@ while frame_end <= channel_in.shape[0]:
 t1 = time.perf_counter()
 print(f"REAL RES: {(t1-t0)/index}")
 t0 = time.perf_counter()
-np_res = np.convolve(channel_in[:,0], h)[0:t]
+np_res = np.zeros((t, channels))
+for i in range(channels):
+    np_res[:, i] = np.convolve(channel_in[:,i], h)[0:t]
 t1 = time.perf_counter()
 print(f"NP RES: {t1-t0}")
-print(mean_squared_error(real_res[:,0], np_res))
+print(mean_squared_error(real_res[:,0], np_res[:,0]))
 
 plt.figure()
 plt.plot(sci_res[:,0], label='SciPy Filtered Signal')
 plt.plot(mne_res.T[:,0], label='MNE Filtered Signal', linestyle='dashed')
 plt.plot(real_res[:,0], label='Real Time Filtered')
-plt.plot(np_res, label="NP Convole")
+plt.plot(np_res[:,0], label="NP Convole")
 plt.legend()
 plt.title('Comparison of Filtered Signals')
 

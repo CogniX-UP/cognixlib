@@ -57,9 +57,15 @@ class SegmentationNode(Node):
         markers: PortList = Instance(
             PortList,
             lambda: PortList(
-                list_type=PortList.ListType.OUTPUTS,
+                list_type=PortList.ListType.OUTPUTS | PortList.ListType.INPUTS,
+                min_port_count=1,
+                inp_params=PortList.Params(
+                  allowed_data= StreamSignal | Sequence[tuple[str, float]],
+                  prefix="in_",  
+                ),
                 out_params=PortList.Params(
-                    allowed_data=StreamSignal | Sequence[StreamSignal]
+                    allowed_data=StreamSignal | Sequence[StreamSignal],
+                    suffix="_data",
                 )
             ),
             style='custom',
@@ -68,14 +74,13 @@ class SegmentationNode(Node):
         
     init_inputs = [
         PortConfig(label='data', allowed_data=StreamSignal),
-        PortConfig(
-            label='marker', 
-            allowed_data=StreamSignal | Sequence[tuple[str, float]]
-        )
+    ]
+    init_outputs = [
+        PortConfig(label='og_data', allowed_data=StreamSignal)
     ]
 
     @property
-    def config(self) -> SegmentationNode.Config:
+    def config(self) -> Config:
         return self._config
     
     def init(self):
