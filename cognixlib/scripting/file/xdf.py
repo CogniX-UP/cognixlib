@@ -26,6 +26,8 @@ class ChunkTag(IntEnum):
     UNDEFINED = 0
      
 class XDFWriter:
+    """A class that allows the writing of data in the XDF format"""
+    
     def __init__(self, filename: str ,on_init_open: bool = False):
         self.filename = filename 
         self.write_mut = threading.Lock()
@@ -42,6 +44,7 @@ class XDFWriter:
         self.close_file()
         
     def open_file_(self, filename: str):
+        """Opens the file to be written to."""
         self._file = open(filename,"wb")
    
         self._file.write("XDF:".encode('utf-8'))
@@ -53,6 +56,7 @@ class XDFWriter:
         self._write_chunk(ChunkTag.FILE_HEADER, header, None)
     
     def close_file(self):
+        """Closes the file."""
         self._file.close()
         self._file = None
 
@@ -62,8 +66,8 @@ class XDFWriter:
         header = ("<?xml version=\"1.0\"?><info><name>{}</name><type>{}</type><channel_count>{}</channel_count><channels>{}</channels><nominal_srate>{}</nominal_srate> \
                 <channel_format>{}</channel_format><created_at>{}</created_at></info>".format(stream_id_infos['stream_name'],stream_id_infos['stream_type'],stream_id_infos['channel_count'],\
                     stream_id_infos['channels'],stream_id_infos['nominal_srate'],stream_id_infos['channel_format'],stream_id_infos['time_created']))
-        self.write_stream_header(streamid, header)
-        self.write_boundary_chunk()
+        self._write_stream_header(streamid, header)
+        self._write_boundary_chunk()
     
     def write_data(
         self,
@@ -74,14 +78,14 @@ class XDFWriter:
     ):
         """Writes the data for a stream for the XDF."""
         if isinstance(data_content,list):
-            self.write_data_chunk(
+            self._write_data_chunk(
                 streamid,
                 timestamps,
                 data_content, 
                 channel_count
             )
         else: 
-            self.write_data_chunk_nested(
+            self._write_data_chunk_nested(
                 streamid,
                 timestamps,
                 data_content
@@ -99,9 +103,9 @@ class XDFWriter:
                 "<?xml version=\"1.0\"?><info><first_timestamp>{}</first_timestamp><last_timestamp>{}</last_timestamp><sample_count>{}</sample_count> \
                 <clock_offsets><offset><time>50979.7660030605</time><value>-3.436503902776167e-06</value></offset></clock_offsets></info>".format(first_time,last_time,samples_count)
             )
-        self.write_boundary_chunk()
-        self.write_stream_offset(streamid, local_clock(),-0.5)
-        self.write_stream_footer(streamid, footer)
+        self._write_boundary_chunk()
+        self._write_stream_offset(streamid, local_clock(),-0.5)
+        self._write_stream_footer(streamid, footer)
     
     def _write_chunk(self,tag:ChunkTag,content:bytes,streamid_p:int):
         self.write_mut.acquire()
@@ -129,7 +133,7 @@ class XDFWriter:
             outstr_string_version = struct.pack('b',outstr[0]) + s + outstr[1:]
             self._write_chunk(ChunkTag.SAMPLES,outstr_string_version,streamid)
     
-    def write_data_chunk(self, streamid: int, timestamps: list, chunk: list | np.ndarray, n_channels: int):
+    def _write_data_chunk(self, streamid: int, timestamps: list, chunk: list | np.ndarray, n_channels: int):
         if type(chunk)!=str and isinstance(chunk,np.ndarray):
             assert len(timestamps) * n_channels == chunk.size
         
@@ -138,7 +142,7 @@ class XDFWriter:
     
         self._write_data_chunk_(streamid,timestamps,chunk,len(timestamps),n_channels)
         
-    def write_data_chunk_nested(self,streamid:int,timestamps:list,chunk:list|np.ndarray): ##### WRITE CHUNK DATA THAT ARE 2D ARRAY
+    def _write_data_chunk_nested(self,streamid:int,timestamps:list,chunk:list|np.ndarray): ##### WRITE CHUNK DATA THAT ARE 2D ARRAY
         if isinstance(chunk,list) and len(chunk) == 0:
             return 
         if isinstance(chunk,np.ndarray) and chunk.size == 0: 
@@ -160,7 +164,7 @@ class XDFWriter:
             chunk_new = chunk[ts]
             assert(n_channels == len(chunk_new))
             _write_ts(out,timestamps[ts],"uint32_t")
-            write_sample_values(out,chunk_new,n_channels,self.stream_ids_formats[str(streamid)])
+            write_sample_values(out, chunk_new, n_channels, self.stream_ids_formats[str(streamid)])
             
         outstr = out.getvalue()
         out.close()
@@ -178,7 +182,7 @@ class XDFWriter:
         if streamid_p!=None:
             write_little_endian(self._file,streamid_p,"uint32_t")
         
-    def write_stream_header(self, streamid: int, content: str, fm = None):
+    def _write_stream_header(self, streamid: int, content: str, fm = None):
         if not fm:
             try:
                 header_data = xmltodict.parse(content)
@@ -195,18 +199,18 @@ class XDFWriter:
             print("HEADER",self.stream_ids_formats)
             self._write_chunk(ChunkTag.STREAM_HEADER,content,streamid)
            
-    def write_stream_footer(self, streamid: int, content: str):
+    def _write_stream_footer(self, streamid: int, content: str):
         self._write_chunk(ChunkTag.STREAM_FOOTER, content,streamid)
     
-    def write_stream_offset(self,streamid:int,time_now:time,offset:float):
+    def _write_stream_offset(self,streamid:int,time_now:time,offset:float):
         self.write_mut.acquire()
         length = struct.calcsize('d') + struct.calcsize('d')
         self._write_chunk_header(ChunkTag.CLOCK_OFFSET, length, streamid)
-        write_little_endian(self._file,time_now - offset,None)
-        write_little_endian(self._file,offset,None)
+        write_little_endian(self._file,time_now - offset, None)
+        write_little_endian(self._file, offset, None)
         self.write_mut.release()
     
-    def write_boundary_chunk(self):
+    def _write_boundary_chunk(self):
         self.write_mut.acquire()
         boundary_uuid = [0x43, 0xA5, 0x46, 0xDC, 0xCB, 0xF5, 0x41, 0x0F, 0xB3, 0x0E,0xD5, 0x46, 0x73, 0x83, 0xCB, 0xE4]
         boundary_uuid = np.array(boundary_uuid,dtype=np.uint8)

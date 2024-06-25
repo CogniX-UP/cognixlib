@@ -8,7 +8,7 @@ import numpy as np
 
 from ...scripting.data import LabeledSignal,FeatureSignal
 
-from ...scripting.prediction.core import BasePredictor
+from ...scripting.prediction._core import BasePredictor
 from ...scripting.prediction.scikit import (
     SVMClassifier,
     RFClassifier,
@@ -190,7 +190,7 @@ class TrainNode(Node):
                 train_precision,
                 train_recall,
                 train_f1
-            ) = self.classifier.train(self.signal)
+            ) = self.classifier.fit(self.signal)
             
             metrics_signal = LabeledSignal(
                 labels=['train_accuracy','train_precision','train_recall','train_f1'],
@@ -229,7 +229,7 @@ class TrainTestSplitNode(Node):
         
         if signal:
 
-            train_signal,test_signal = self.model.split_data(f_signal=signal,test_size=self.tt_split)
+            train_signal,test_signal = self.model.split_data(signal=signal,test_size=self.tt_split)
             self.set_output(0, train_signal)
             self.set_output(1, test_signal)
 
@@ -318,7 +318,7 @@ class SaveModel(Node):
     
     def stop(self):
         if self.classifier and self.path:
-            self.classifier.save_model(self.path)
+            self.classifier.save(self.path)
             
 class LoadModel(Node):
     title = 'Load Model'
@@ -351,7 +351,7 @@ class LoadModel(Node):
         
         if path_file:
             self.classifier = SciKitClassifier(None)
-            self.model = self.classifier.load_model(path=path_file)
+            self.model = self.classifier.load(path=path_file)
             if self.model:
                 self.set_output(0, SciKitClassifier(self.model))
             else:
@@ -383,7 +383,7 @@ class TestNode(Node):
         if inp == 1:self.model:SciKitClassifier = self.input(inp)
 
         if self.signal and self.model:
-            test_accuracy,test_precision,test_recall,test_f1 = self.model.test(f_signal_test=self.signal)
+            test_accuracy,test_precision,test_recall,test_f1 = self.model.test(signal=self.signal)
             
             metrics_signal = LabeledSignal(
                 labels=['test_accuracy','test_precision','test_recall','test_f1'],
@@ -414,7 +414,7 @@ class PredictNode(Node):
         if inp == 1:self.model:SciKitClassifier = self.input(inp)
 
         if self.signal and self.model:
-            predictions = self.model.predict(f_signal_test=self.signal)
+            predictions = self.model.predict(signal=self.signal)
             
             metrics_signal = LabeledSignal(
                 labels=['prediction'],
