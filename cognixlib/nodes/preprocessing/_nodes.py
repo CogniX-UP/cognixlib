@@ -60,7 +60,7 @@ class SegmentationNode(Node):
                 list_type=PortList.ListType.OUTPUTS | PortList.ListType.INPUTS,
                 min_port_count=1,
                 inp_params=PortList.Params(
-                  allowed_data= StreamSignal | Sequence[tuple[str, float]],
+                  allowed_data=StreamSignal | Sequence[tuple[str, float]],
                   prefix="in_",  
                 ),
                 out_params=PortList.Params(

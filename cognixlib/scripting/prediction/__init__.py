@@ -1,1 +1,4 @@
-from ._core import BasePredictor
+from ._core import (
+    BasePredictor,
+    BaseClassifier,
+)

@@ -112,7 +112,7 @@ class TestRandomFeaturesNode(FrameNode):
                 '1':(0,50)
             }
             labels = [f'feature{i}' for i in range(40)]
-            signal = FeatureSignal(data = data,class_dict=classes,signal_info=None,labels=labels)
+            signal = FeatureSignal(data = data,classes=classes,signal_info=None,labels=labels)
             self.set_output(0, signal)
 
 class TestRandomFeaturesNode1(FrameNode):

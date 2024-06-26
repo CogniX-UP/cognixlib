@@ -9,6 +9,7 @@ from sklearn.metrics import (
     f1_score,
 )
 
+from sklearn.base import ClassifierMixin
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -29,7 +30,7 @@ from ..data.signals import FeatureSignal
 class SciKitClassifier(BasePredictor):
     """The base class for a `SciKit <https://scikit-learn.org/stable/index.html>`_ classifier"""
     
-    def __init__(self, model):
+    def __init__(self, model: ClassifierMixin):
         self.model = model
 
     def fit(self, signal: FeatureSignal):
@@ -55,7 +56,7 @@ class SciKitClassifier(BasePredictor):
 
         Y_train = np.array([class_labels[class_] for class_ in Y_train])
 
-        self.model.fit(X_train,Y_train)
+        self.model.fit(X_train, Y_train)
 
         y_pred = self.model.predict(X_train)
 
@@ -134,7 +135,7 @@ class SciKitClassifier(BasePredictor):
             
         features_train = np.concatenate(features_train)
         
-        train_signal = FeatureSignal(labels=signal.labels,class_dict=classes_train,data=features_train,signal_info=None)       
+        train_signal = FeatureSignal(labels=signal.labels,classes=classes_train,data=features_train,signal_info=None)       
         
         count = 0
         features_test = []
@@ -147,7 +148,7 @@ class SciKitClassifier(BasePredictor):
             
         features_test = np.concatenate(features_test)
 
-        test_signal = FeatureSignal(labels=signal.labels,class_dict=classes_test,data=features_test,signal_info=None)       
+        test_signal = FeatureSignal(labels=signal.labels,classes=classes_test,data=features_test,signal_info=None)       
 
         
         return train_signal,test_signal

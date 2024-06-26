@@ -301,7 +301,7 @@ class FBCSPTransformRealTimeNode(Node):
             
             signal_features = FeatureSignal(
                 labels=label_features,
-                class_dict = classes,
+                classes = classes,
                 data = features,
                 signal_info = None
             )
@@ -402,7 +402,7 @@ class FBCSPTransformNodeForOneSignal(Node):
             
             signal_features = FeatureSignal(
                 labels=label_features,
-                class_dict = classes,
+                classes = classes,
                 data = features,
                 signal_info = None
             )
@@ -486,7 +486,7 @@ class PSDMultitaperNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,results[0].shape[0])},
+                classes = {f'{self.config.class_}':(0,results[0].shape[0])},
                 data = results[0],
                 signal_info = sig.info
             )
@@ -568,7 +568,7 @@ class PSDWelchNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,results[0].shape[0])},
+                classes = {f'{self.config.class_}':(0,results[0].shape[0])},
                 data = results[0],
                 signal_info = sig.info
             )
@@ -646,7 +646,7 @@ class MorletTFNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,out_reshaped.shape[0])},
+                classes = {f'{self.config.class_}':(0,out_reshaped.shape[0])},
                 data = out_reshaped,
                 signal_info = sig.info
             )
@@ -731,7 +731,7 @@ class MultitaperTFNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,out_reshaped.shape[0])},
+                classes = {f'{self.config.class_}':(0,out_reshaped.shape[0])},
                 data = out_reshaped,
                 signal_info = sig.info
             )
@@ -797,7 +797,7 @@ class StockwellTFNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,sig.data.shape[0])},
+                classes = {f'{self.config.class_}':(0,sig.data.shape[0])},
                 data = out_reshaped,
                 signal_info = sig.info
             )
@@ -854,7 +854,7 @@ class STFTNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = out_reshaped,
                 signal_info = sig.info
             )
@@ -1058,7 +1058,7 @@ class MeanNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1111,7 +1111,7 @@ class VarNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1164,7 +1164,7 @@ class StdNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1217,7 +1217,7 @@ class PTPNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1270,7 +1270,7 @@ class SkewNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1323,7 +1323,7 @@ class KurtNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1376,7 +1376,7 @@ class RMSNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1429,7 +1429,7 @@ class MobilityNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1482,7 +1482,7 @@ class ComplexityNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1535,7 +1535,7 @@ class Quantile75thNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1588,7 +1588,7 @@ class Quantile25thNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1666,7 +1666,7 @@ class StatisticsNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,data.shape[0])},
+                classes = {f'{self.config.class_}':(0,data.shape[0])},
                 data = features,
                 signal_info = sig.info
             )
@@ -1717,7 +1717,7 @@ class ApproximateEntopyNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1764,7 +1764,7 @@ class SampleEntropyNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1812,7 +1812,7 @@ class SVDEntropyNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1858,7 +1858,7 @@ class WaveletEnergyNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1907,7 +1907,7 @@ class PLVNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -1957,7 +1957,7 @@ class CorrelationNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -2012,7 +2012,7 @@ class CorrelationSpectralNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )
@@ -2086,7 +2086,7 @@ class PowerSpectrumNode(Node):
 
             signal_features = FeatureSignal(
                 labels=labels,
-                class_dict = {f'{self.config.class_}':(0,1)},
+                classes = {f'{self.config.class_}':(0,1)},
                 data = feature,
                 signal_info = sig.info
             )

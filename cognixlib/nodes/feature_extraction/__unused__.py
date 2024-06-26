@@ -86,7 +86,7 @@ class FBCSPTrainNode(Node):
             
             signal_features = FeatureSignal(
                 labels=label_features,
-                class_dict = signal.classes,
+                classes = signal.classes,
                 data = features,
                 signal_info = None
             )
@@ -155,7 +155,7 @@ class FBCSPTransformNode(Node):
             
             signal_features = FeatureSignal(
                 labels=label_features,
-                class_dict = signal.classes,
+                classes = signal.classes,
                 data = features,
                 signal_info = None
             )
@@ -242,7 +242,7 @@ class FBCSPTrainOnlineVersionNode(Node):
             
             signal_features = FeatureSignal(
                 labels=label_features,
-                class_dict = classes,
+                classes = classes,
                 data = features,
                 signal_info = None
             )
@@ -322,7 +322,7 @@ class FBCSPTransformOnlineNode(Node):
             
             signal_features = FeatureSignal(
                 labels=label_features,
-                class_dict = classes,
+                classes = classes,
                 data = features,
                 signal_info = None
             )

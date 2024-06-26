@@ -141,5 +141,6 @@ def run():
     print(test_sig.data.shape)
     print(test_sig.classes)
     print(f"WITHOUT ROWS: {(t2-t1)/test_size}")
+    
 if __name__ == '__main__':
     run()

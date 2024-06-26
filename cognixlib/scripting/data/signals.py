@@ -1,11 +1,29 @@
-"""Defines the core functionalities and data types for :code:`cognixlib`"""
+"""
+Defines the core functionalities and data types for :code:`cognixlib`
+
+The Signal classes are special classes that wrap numpy arrays with additional
+functionality and potentially metadata. Each Signal object might have its own
+restrictions over dimensionality and metadata. The basic :class:`Signal` object
+has no restrictions.
+
+The other built-in signal objects, namely :class:`TimeSignal`, :class:`LabeledSignal`,
+:class:`FeatureSignal`, :class:`StreamSignal` typically operate as 2D arrays (with 
+arbitrary data inside). Any operation that may reduce the matrix to 1D will also reduce
+the signal type to the generic :class:`Signal`. The same applies to boolean masking.
+This happens because the above classes' metadata relies heavily on the assumption 
+that the array/matrix is 2D.
+
+Typically, in numpy, the only way to keep the structure of an array is by using a tuple
+of slices for any extraction operation. 
+"""
 
 from __future__ import annotations
-from collections.abc import Sequence
+from collections.abc import Sequence, Mapping
 from .mixin import *
 from sys import maxsize
 from itertools import chain
 from copy import copy, deepcopy
+from beartype.door import is_bearable
 import numpy as np
 
 from .conversions import *
@@ -93,6 +111,10 @@ class Signal:
     def data(self) -> np.ndarray:
         return self._data
     
+    @data.setter
+    def data(self, value: np.ndarray):
+        self._data = value
+    
     def __str__(self):
         return str(self.data)
     
@@ -128,7 +150,7 @@ class Signal:
     def __ge__(self, other):
         return self.data >= self._extract_data(other)
     
-    def _extract_data(other):
+    def _extract_data(self, other):
         return other.data if isinstance(other, Signal) else other
     
     def copy(self, copydata=True):
@@ -146,8 +168,29 @@ class Signal:
     
     def deepcopy(self):
         """Returns a deep copy of the signal"""
-        return deepcopy(self)        
-
+        return deepcopy(self)  
+    
+    def _check_bool_filter(self, key) -> Signal | None:
+        """
+        Checks to see if this is a boolean masking operation. If it is,
+        this reduces the signal to :class:`Signal`.
+        """
+        if isinstance(key, np.ndarray) and key.dtype == np.bool_:
+            return Signal(self.data[key], None)
+        return None
+    
+    def _check_reduce(self, key) -> Signal | None:
+        """
+        Checks to see if the key consists of a tuple of slices. Only then
+        it is guaranteed that the signal will keep the 2D aspect.
+        """
+        if not isinstance(key, tuple):
+            return Signal(self.data[key], None)
+        key_one, key_two = key
+        if not isinstance(key_one, slice) and not isinstance(key_two, slice):
+            return Signal(self.data[key], None)
+        return None
+ 
 class TimeSignal(Signal, Timestamped):
     """
     Represents signal data with additional timestamps per sample
@@ -188,47 +231,10 @@ class TimeSignal(Signal, Timestamped):
             data_conc,
             signals[0].info
         )
-                
-    class DataMap:
-        """
-        Maps from time indices to data indices
-        
-        Since timestamps are row-related, there is no
-        conversion between time and data indices.
-        """
-        def __init__(self, data: np.ndarray, timestamps: Sequence[float], info: SignalInfo):
-            self.data = data
-            self.timestamps = timestamps
-            self.info = info
-        
-        def __str__(self):
-            return str(self.data)
-        
-        def __getitem__(self, key):
-            sub_data = self.data[key]
-            sub_times = self.timestamps[key]
-            return TimeSignal.DataMap(sub_data, sub_times, self.info)
-        
-        def __setitem__(self, key, value):
-            self.data[key] = value
-        
-        def signal(self):
-            """Converts the DataMap back to a TimeSignal"""
-            return TimeSignal(self.data, self.timestamps, self.info)
         
     def __init__(self, timestamps: Sequence[float], data: np.ndarray, signal_info: SignalInfo):
         Signal.__init__(self, data, signal_info)
         Timestamped.__init__(self, timestamps)
-        self._time_datamap = TimeSignal.DataMap(data, timestamps, signal_info)
-    
-    @property
-    def data(self) -> np.ndarray:
-        return self._data
-    
-    @data.setter
-    def data(self, value: np.ndarray):
-        self._data = value
-        self._time_datamap.data = value
         
     @property
     def timestamps(self) -> np.ndarray:
@@ -237,43 +243,33 @@ class TimeSignal(Signal, Timestamped):
     @timestamps.setter
     def timestamps(self, value: np.ndarray):
         self._timestamps = value
-        self._time_datamap.timestamps = value
-        
-    @property
-    def time_datamap(self) -> DataMap:
-        """Retrieves an object with mapped indices from timestamps to data"""
-        return self._time_datamap
-    
-    @property
-    def tdm(self) -> DataMap:
-        """Shorthand for time_datamap"""
-        return self.time_datamap
     
     def copy(self, copydata=True) -> TimeSignal:
         new_sig = super().copy(copydata)
-        new_sig._time_datamap = TimeSignal.DataMap(
-            new_sig.data, 
-            new_sig.timestamps, 
-            new_sig.info
-        )
         return new_sig
 
     def __getitem__(self, key):
+        bool_check = self._check_bool_filter(key)
+        if bool_check is not None:
+            return bool_check
+        
+        reduce_check = self._check_reduce(key)
+        if reduce_check is not None:
+            return reduce_check
+        
+        # At this point, both are slices
         return TimeSignal(
             self._extract_timestamps(key),
             self.data[key],
             self.info
         )
     
-    def _extract_timestamps(self, key):
-        if isinstance(key, (slice, Sequence, np.ndarray, int)):
-            new_times = self.timestamps[key]
-        elif isinstance(key, tuple):
-            left, _ = key
-            new_times = self.timestamps[left]
-        else:
-            new_times = self.timestamps
-        return new_times
+    def _extract_timestamps(self, key: tuple[slice, slice]):
+        """Extracts the timestamps when the key is a tuple"""
+        # we only care about the row aspect, since by our convention,
+        # the rows are associated with timestamps
+        left, _ = key
+        return self.timestamps[left]
 
 class LabeledSignal(Signal, Labeled):
     """
@@ -310,75 +306,6 @@ class LabeledSignal(Signal, Labeled):
             data_con,
             signals[0].info
         )
-        
-    class DataMap:
-        """
-        Maps from label indices to data indices
-        
-        Since labels are column-related, a conversion must be made
-        between label indices and data indices.
-        """
-        def __init__(self, data: np.ndarray, labels: np.ndarray, info: SignalInfo):
-            self.data = data
-            self.info = info
-            self.labels = labels
-        
-        @property
-        def labels(self) -> np.ndarray:
-            """A ndarray of strings which holds the labels."""
-            return self._labels
-        
-        @labels.setter
-        def labels(self, value: np.ndarray):
-            self._labels = value
-            self._label_to_index: dict[str, int] = {
-                label:index for index, label in enumerate(value.flat)
-            }
-            
-        def __str__(self):
-            return f"{self.labels}\n{self.data}"
-        
-        def __getitem__(self, key):
-            old_key = key
-            key = self.convert_to_indices(key)
-            sub_data = self.data[:, key]
-            if isinstance(key, list):
-                sub_labels = np.array(old_key)
-            else:
-                sub_labels = self.labels[key]
-            return LabeledSignal.DataMap(sub_data, sub_labels, self.info)
-        
-        def __setitem__(self, key, value):
-            key = self.convert_to_indices(key)
-            self.data[:, key] = value
-        
-        def signal(self):
-            """Converts the DataMap back to a LabeledSignal"""
-            return LabeledSignal(self.labels, self.data, self.info)
-        
-        def convert_to_indices(self, key):
-            result = key
-            if isinstance(key, str):
-                result = self._label_to_index[key]
-            elif isinstance(key, list):
-                result = []
-                for k in key:
-                    result.append(self._label_to_index[k])
-            elif isinstance(key, slice):
-                start = (
-                    self._label_to_index[key.start] 
-                    if isinstance(key.start, str)
-                    else key.start
-                )
-                stop = (
-                    self._label_to_index[key.stop]
-                    if isinstance(key.stop, str)
-                    else key.stop
-                )
-                stop += 1
-                stop = min(len(self.labels), stop)
-                result = slice(start, stop)
-            return result
     
     def __init__(
         self,
@@ -389,16 +316,11 @@ class LabeledSignal(Signal, Labeled):
     ):
         Signal.__init__(self, data, signal_info)
         Labeled.__init__(self, labels, make_lowercase)
-        self._label_datamap = LabeledSignal.DataMap(data, self.labels, signal_info)
-
-    @property
-    def data(self):
-        return self._data
-    
-    @data.setter
-    def data(self, value: np.ndarray):
-        self._data = value
-        self._label_datamap.data = value
+        if isinstance(labels, np.ndarray):
+            labels = labels.flat
+        self._label_to_index: dict[str, int] = {
+            label:index for index, label in enumerate(labels)
+        }
         
     @property
     def labels(self):
@@ -407,43 +329,83 @@ class LabeledSignal(Signal, Labeled):
     @labels.setter
     def labels(self, value: np.ndarray):
         self._labels = value
-        self._label_datamap.labels = value
     
     @property
-    def label_datamap(self) -> DataMap:
-        """Retrieves an object with mapped indices from labels to data"""
-        return self._label_datamap
-
-    @property
-    def ldm(self) -> DataMap:
-        """Shorthand for label_datamap"""
-        return self.label_datamap
+    def label_indices(self) -> Mapping[str, int]:
+        return self._label_to_index
     
-    def copy(self, copydata=True) -> LabeledSignal:
-        new_sig = super().copy(copydata)
-        new_sig._label_datamap = LabeledSignal.DataMap(
-            new_sig.data,
-            new_sig.labels,
-            new_sig.info
-        )
-        return new_sig
+    def label_index(self, label: str) -> int:
+        if not label in self._label_to_index:
+            return -1
+        return self._label_to_index[label]
     
     def __getitem__(self, key):
+        # Handle the cases of strings first
+        label_check = self._check_labels(key)
+        if label_check is not None:
+            return label_check
+                
+        # bool mask check
+        bool_check = self._check_bool_filter(key)
+        if bool_check is not None:
+            return bool_check
+        
+        # dim reduce check
+        reduce_check = self._check_reduce(key)
+        if reduce_check is not None:
+            return reduce_check
+        
         return LabeledSignal(
             self._extract_labels(key),
             self.data[key],
             self.info
         )
     
-    def _extract_labels(self, key):
-        if isinstance(key, tuple):
-            _, right = key
-            if isinstance(right, (slice, Sequence, np.ndarray, int)):
-                new_labels = self.labels[right]
-        else:
-            new_labels = self.labels
-        
-        return new_labels
+    def _check_labels(self, key) -> LabeledSignal | None:
+        """Checks if the key includes any kind of string handling."""
+        if isinstance(key, str):
+            index = self.label_index(key)
+            labels = np.array(self.labels[index])
+            return LabeledSignal(
+                labels,
+                self.data[:, key:key+1],
+                self.info
+            )
+        elif is_bearable(key, Sequence[str]):
+            indices = [
+                self.label_index(label) 
+                for label in key
+                if self.label_index(label) > 0
+            ]
+            stop, start = indices[-1], indices[0]
+            consecutive = len(indices) == (stop - start + 1)
+            if consecutive:
+                indices = slice(start, stop + 1)
+            return LabeledSignal(
+                self.labels[indices],
+                self.data[:, indices],
+                self.info
+            )
+        elif (
+            isinstance(key, slice) and
+            isinstance(key.start, str) and
+            isinstance(key.stop, str)
+        ):
+            start = self.label_index(key.start)
+            stop = self.label_index(key.stop)
+            if start < stop:
+                return LabeledSignal(
+                    self.labels[start:stop],
+                    self.data[:, start:stop],
+                    self.info
+                )
+                
+        return None
+    
+    def _extract_labels(self, key: tuple[slice, slice]):
+        """Extracts the subset of labels"""
+        _, right = key
+        return self.labels[right]
     
 class StreamSignalInfo(SignalInfo, StreamConfig):
     """Information regard a Stream Signal"""
@@ -508,22 +470,28 @@ class StreamSignal(TimeSignal, LabeledSignal):
     @property
     def info(self) -> StreamSignalInfo:
         return self._info
-    
-    def copy(self, copydata=True) -> StreamSignal:
-        new_sig: StreamSignal = Signal.copy(self, copydata)
-        new_sig._label_datamap = LabeledSignal.DataMap(
-            new_sig.data,
-            new_sig.labels,
-            new_sig.info
-        )
-        new_sig._time_datamap = TimeSignal.DataMap(
-            new_sig.data,
-            new_sig.timestamps,
-            new_sig.info
-        )
-        return new_sig
 
     def __getitem__(self, key):
+        # label check, rows are not affected / timestamps
+        label_check = self._check_labels(key)
+        if label_check is not None:
+            return StreamSignal(
+                self.timestamps,
+                label_check.labels,
+                label_check.data,
+                self.info
+            )
+        
+        # boolean masking check 
+        bool_check = self._check_bool_filter(key)
+        if bool_check is not None:
+            return bool_check
+        
+        # reduce check
+        reduce_check = self._check_reduce(key)
+        if reduce_check is not None:
+            return reduce_check
+        
         new_timestamps = self._extract_timestamps(key)
         new_labels = self._extract_labels(key)
         new_data = self.data[key]
@@ -687,42 +655,46 @@ class FeatureSignal(LabeledSignal):
     def __init__(
         self, 
         labels: Sequence[str],
-        class_dict: dict[str, tuple[int, int]],
+        classes: dict[str, tuple[int, int]],
         data: np.ndarray, 
         signal_info: SignalInfo,
         sort=True,
-        classes_datamap: FeatureSignal.DataMap=None
     ):
-        if not classes_datamap:
-            super().__init__(labels, data, signal_info)
-            self._class_datamap = FeatureSignal.DataMap(
-                labels, 
-                class_dict, 
-                data, 
-                signal_info,
-                sort
-            )
-            self.classes = self._class_datamap.classes
-        else:
-            super().__init__(
-                classes_datamap.labels,
-                classes_datamap.data,
-                classes_datamap.info
-            )
-            self.classes = classes_datamap.classes
-            self._class_datamap = classes_datamap
-            
-    @property
-    def class_datamap(self) -> DataMap:
-        """Map from the classes to the portion of the signal"""
-        return self._class_datamap
+        super().__init__(labels, data, signal_info)
+        self.classes = classes
+        self._build_succession(sort)
     
-    @property
-    def cdm(self) -> DataMap:
-        """Shorthand for class_datamap"""
-        return self._class_datamap
-    
+    def _build_succession(self, sort=True):
+        # Optimized
+        if sort:
+            self.classes = dict(
+                sorted(
+                    self.classes.items(), 
+                    key=lambda item:item[1][1] # sort by value and by the end of the indices
+                )
+            )
+        
+        self._succ_classes_list = list(self.classes.keys())
+        
     def __getitem__(self, key):
+        
+        # check for label specific feature extraction
+        label_check = self._check_labels(key)
+        if label_check is not None:
+            return label_check
+        
+        # check for class specific feature extraction
+        
+        # if this is masked
+        bool_check = self._check_bool_filter(key)
+        if bool_check is not None:
+            return bool_check
+        
+        # reduce check
+        reduce_check = self._check_reduce(key)
+        if reduce_check is not None:
+            return reduce_check
+        
         new_labels = self._extract_labels(key)
         new_classes = self._extract_classes_by_key(key)
         return FeatureSignal(
@@ -732,6 +704,51 @@ class FeatureSignal(LabeledSignal):
             self.info
         )
     
+    def _check_labels(self, key) -> FeatureSignal | None:
+        if (
+            (
+                isinstance(key, str) and
+                key in self.labels
+            ) or 
+            (
+                is_bearable(key, Sequence[str])
+                and key[0] in self.labels        
+            ) or
+            (
+                is_bearable(key, tuple[slice])
+                and key[0] in self.labels
+                and key[1] in self.labels
+            )
+        ):
+            label_check = super()._check_labels(key)
+            
+            # no rows are affected by this
+            if label_check is not None:
+                return FeatureSignal(
+                    label_check.labels,
+                    self.classes,
+                    label_check.data,
+                    self.info,
+                    False
+                )
+                
+        return None
+    
+    def _check_classes(self, key) -> FeatureSignal | None:
+        if (
+            (
+                isinstance(key, str) and
+                key in self._succ_classes_list
+            ) or 
+            (
+                is_bearable(key, Sequence[str])
+                and key[0] in self._succ_classes_list        
+            )
+        ):
+            pass
+        
+        return None
+        
     def _extract_classes_by_key(self, key):
         if isinstance(key, (slice, Sequence, np.ndarray, int)):
             new_classes = self._extract_classes(key)
@@ -758,7 +775,7 @@ class FeatureSignal(LabeledSignal):
             rows_to_include = np.arange(start, end, step)
             
         elif isinstance(rows, Sequence):
-            rows_to_include = np.array(rows, dtype='int64')
+            rows_to_include = np.array(rows, dtype=np.int64)
             rows_to_include.sort()
         elif isinstance(rows, np.ndarray):
             if rows.dtype == np.bool_:
@@ -773,7 +790,7 @@ class FeatureSignal(LabeledSignal):
         class_include_count: dict[str, int] = {}
         min_class_index = maxsize
         max_class_index = -1
-        succ_classes_list = self.cdm._succ_classes_list
+        succ_classes_list = self._succ_classes_list
         
         
         # The rows to remove are sorted here
