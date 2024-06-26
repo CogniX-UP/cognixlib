@@ -12,33 +12,22 @@ def run():
     a = LabeledSignal(labels, data, None)
     
     assert np.array_equal(
-        a.ldm['x1':'x3'].data, 
+        a['x1':'x3'].data, 
         a[:, 1:4].data
     ) # x3 is inclusive
     assert np.array_equal(
-        a.ldm['x2'].data, 
-        a[:, 2].data
+        a['x2'].data, 
+        a[:, [2]].data
     )
     assert np.array_equal(
-        a.ldm[['x1', 'x2', 'x4']].data, 
+        a[['x1', 'x2', 'x4']].data, 
         a[:, [1, 2, 4]].data
     )
+    
 
-    # TIMESTAMPS TEST
-    timestamps = np.random.rand(size)
-    data = np.random.rand(size, 6)
-    a = TimeSignal(timestamps, data, None)
-    
-    assert np.array_equal(
-        a.tdm[0:2].data, 
-        a[0:2].data
-    )
-    assert np.array_equal(
-        a.tdm[4].data, 
-        a[4].data
-    )
-    
     # STREAM TEST - MUST BE USED IN LSL
+    timestamps = np.random.rand(size)
+    
     b = StreamSignal(timestamps, labels, data, None)
     
     # CLASS TEST - MUST BE USED FOR TRAINING
@@ -56,11 +45,11 @@ def run():
     )
     
     assert np.array_equal(
-        f1.cdm["george"].data, 
+        f1["george"].data, 
         f1[0:14].data
     )
     assert np.array_equal(
-        f1.cdm["john"].data, 
+        f1["john"].data, 
         f1[14:25].data
     )
     
@@ -81,31 +70,34 @@ def run():
     f_signal = FeatureSignal.concat_classes(f1, f2)
 
     assert np.array_equal(
-        f_signal.cdm['george'].data[0:14],
-        f1.cdm['george'].data
+        f_signal['george'].data[0:14],
+        f1['george'].data
     )
     assert np.array_equal(
-        f_signal.cdm['john'].data[11:21],
-        f2.cdm['john'].data
+        f_signal['john'].data[11:21],
+        f2['john'].data
     )
     
     # REMOVE TESTs
     
     # Class remove
     t0 = time.perf_counter()
-    new_sig = f2[5:15]
+    new_sig = f2[5:15, :]
     t1 = time.perf_counter()
     print(t1-t0)
     assert np.array_equal(
-        f2.cdm['john'].data[0:5],
-        new_sig.cdm['john'].data
+        f2['john'].data[0:5],
+        new_sig['john'].data
     )
     
-    d_slice = np.r_[0:15, 23:30]
-    new_sig = f2[d_slice]
+    mask = np.ones(f2.data.shape, dtype=np.bool_)
+    mask[15:23] = False
+    mask[:, 2:4] = False
+    new_sig = f2[mask]
+    print(new_sig.data.shape, new_sig.classes, type(new_sig))
     assert np.array_equal(
-        f2.cdm['dam'].data[3:10],
-        new_sig.cdm['dam'].data
+        f2['dam'].data[3:10, :],
+        new_sig['dam'].data
     )
     
     # test for removing class

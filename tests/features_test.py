@@ -14,10 +14,18 @@ data = np.array(
 )
 
 f = LabeledSignal(labels=labels, data=data, signal_info=None)
-f_new = f[f <= -1]
+f_new = f[f > -1]
 assert type(f_new) == Signal
-t = f[2:5, [1, 0]]
+t = f[2:5, [1]]
 assert len(t.data.shape) == 2
-print(t, t.labels)
-x = f[2, 2]
-print(x, type(x))
+t = f['x2':'x3']
+
+# Filter by a column
+rows = np.any(f['x1'] > -1, axis=1)
+f_new = f[rows, :]
+print(f_new, f_new.labels)
+
+# Filter by a row
+cols = np.any(f[[1], :] > -1, axis=0)
+f_new = f[:, cols]
+print(f_new, f_new.labels)

@@ -119,7 +119,7 @@ class Signal:
         return str(self.data)
     
     def __getitem__(self, key):
-        return Signal(self.data[key], self.info)
+        return Signal(self._new_data(key), self.info)
     
     def __setitem__(self, key, newvalue):
         self.data[key] = newvalue
@@ -170,26 +170,46 @@ class Signal:
         """Returns a deep copy of the signal"""
         return deepcopy(self)  
     
-    def _check_bool_filter(self, key) -> Signal | None:
+    def _new_data(self, key):
         """
-        Checks to see if this is a boolean masking operation. If it is,
-        this reduces the signal to :class:`Signal`.
+        Generates the new data from a key, based on whether the key is
+        a mask or anything else
         """
-        if isinstance(key, np.ndarray) and key.dtype == np.bool_:
-            return Signal(self.data[key], None)
-        return None
-    
-    def _check_reduce(self, key) -> Signal | None:
+        if isinstance(key, np.ndarray) and key.dtype==np.bool_:
+            rows = np.any(key, axis=1)
+            cols = np.any(key, axis=0)
+            new_data = self.data[rows, :]
+            new_data = self.data[:, cols]
+        else:
+            new_data = self.data[key]
+        return new_data
+            
+    def _check_reduction(self, key) -> Signal | None:
         """
-        Checks to see if the key consists of a tuple of slices. Only then
-        it is guaranteed that the signal will keep the 2D aspect.
+        Checks to see if the signal must be reduced to a generic :class:`signal` 
+        rather than keep its current type.
+        
+        Casting down to a generic signal will occur if the key is a boolean key
+        of different shape than the original data or if the key is not of type
+        :code:`tuple[slice | Sequence[float], slice | Sequence[float]]
+        
+        Only then will the signal keep the 2D aspect.
         """
-        if not isinstance(key, tuple):
-            return Signal(self.data[key], None)
-        key_one, key_two = key
-        if not isinstance(key_one, slice) and not isinstance(key_two, slice):
-            return Signal(self.data[key], None)
-        return None
+        if (
+            isinstance(key, np.ndarray) and
+            key.dtype == np.bool_ and
+            key.shape == self.data.shape
+        ):
+            return None
+        
+        if (
+            isinstance(key, tuple) and
+            isinstance(key[0], (slice, Sequence, np.ndarray)) and 
+            isinstance(key[1], (slice, Sequence, np.ndarray))
+        ):
+            return None
+        
+        return Signal(self.data[key], None)
  
 class TimeSignal(Signal, Timestamped):
     """
@@ -249,27 +269,25 @@ class TimeSignal(Signal, Timestamped):
         return new_sig
 
     def __getitem__(self, key):
-        bool_check = self._check_bool_filter(key)
-        if bool_check is not None:
-            return bool_check
         
-        reduce_check = self._check_reduce(key)
+        reduce_check = self._check_reduction(key)
         if reduce_check is not None:
             return reduce_check
         
         # At this point, both are slices
         return TimeSignal(
             self._extract_timestamps(key),
-            self.data[key],
+            self._new_data(key),
             self.info
         )
     
-    def _extract_timestamps(self, key: tuple[slice, slice]):
+    def _extract_timestamps(self, key: tuple[slice, slice] | np.ndarray):
         """Extracts the timestamps when the key is a tuple"""
-        # we only care about the row aspect, since by our convention,
-        # the rows are associated with timestamps
-        left, _ = key
-        return self.timestamps[left]
+        if isinstance(key, np.ndarray):
+            rows = np.any(key, axis=1)
+        else:
+            rows, _ = key
+        return self.timestamps[rows]
 
 class LabeledSignal(Signal, Labeled):
     """
@@ -344,20 +362,15 @@ class LabeledSignal(Signal, Labeled):
         label_check = self._check_labels(key)
         if label_check is not None:
             return label_check
-                
-        # bool mask check
-        bool_check = self._check_bool_filter(key)
-        if bool_check is not None:
-            return bool_check
         
         # dim reduce check
-        reduce_check = self._check_reduce(key)
+        reduce_check = self._check_reduction(key)
         if reduce_check is not None:
             return reduce_check
         
         return LabeledSignal(
             self._extract_labels(key),
-            self.data[key],
+            self._new_data(key),
             self.info
         )
     
@@ -368,7 +381,7 @@ class LabeledSignal(Signal, Labeled):
             labels = np.array(self.labels[index])
             return LabeledSignal(
                 labels,
-                self.data[:, key:key+1],
+                self.data[:, index:index+1],
                 self.info
             )
         elif is_bearable(key, Sequence[str]):
@@ -395,17 +408,22 @@ class LabeledSignal(Signal, Labeled):
             stop = self.label_index(key.stop)
             if start < stop:
                 return LabeledSignal(
-                    self.labels[start:stop],
-                    self.data[:, start:stop],
+                    self.labels[start:stop + 1],
+                    self.data[:, start:stop + 1],
                     self.info
                 )
                 
         return None
     
-    def _extract_labels(self, key: tuple[slice, slice]):
+    def _extract_labels(self, key: tuple[slice, slice] | np.ndarray):
         """Extracts the subset of labels"""
-        _, right = key
-        return self.labels[right]
+        # this is meant to work with a mask of the same shape with the 
+        # data
+        if isinstance(key, np.ndarray):
+            cols = np.any(key, axis=0)
+        else:
+            _, cols = key
+        return self.labels[cols]
     
 class StreamSignalInfo(SignalInfo, StreamConfig):
     """Information regard a Stream Signal"""
@@ -482,19 +500,15 @@ class StreamSignal(TimeSignal, LabeledSignal):
                 self.info
             )
         
-        # boolean masking check 
-        bool_check = self._check_bool_filter(key)
-        if bool_check is not None:
-            return bool_check
-        
         # reduce check
-        reduce_check = self._check_reduce(key)
+        reduce_check = self._check_reduction(key)
         if reduce_check is not None:
             return reduce_check
         
         new_timestamps = self._extract_timestamps(key)
         new_labels = self._extract_labels(key)
-        new_data = self.data[key]
+        new_data = self._new_data(key)
+        
         return StreamSignal(
             new_timestamps,
             new_labels,
@@ -551,8 +565,8 @@ class FeatureSignal(LabeledSignal):
             # final length of the current label
             label_data_len = 0
             for signal in signals:
-                if class_label in signal.cdm:
-                    label_data = signal.cdm[class_label].data
+                if class_label in signal.classes:
+                    label_data = signal[class_label].data
                     class_sorted_datas.append(label_data)
                     label_data_len += label_data.shape[0]
             
@@ -566,91 +580,6 @@ class FeatureSignal(LabeledSignal):
             classes_data,
             None
         )
-            
-    class DataMap:
-        
-        def __init__(
-            self,
-            labels: Sequence[str],
-            class_dict: dict[str, tuple[int, int]],
-            data: np.ndarray,
-            signal_info: SignalInfo,
-            sort=True,
-        ):
-            self.labels = labels
-            self.classes = class_dict
-            self.data = data
-            self.info = signal_info
-            
-            self._succ_classes_list: list[str] = None
-            self._build_succession(sort)
-        
-        @property
-        def successive_classes(self):
-            """The class list in order of succession"""
-            return self._succ_classes_list
-        
-        def get(self, key):
-            try:
-                return self[key]
-            except:
-                return None
-        
-        def __contains__(self, class_name):
-            return class_name in self.classes    
-            
-        def __getitem__(self, key):
-            if isinstance(key, str):
-                class_range = self.classes[key]
-                subclasses = {key: class_range}
-                start, stop = class_range
-                subdata = self.data[start:stop]
-                sort=False
-            elif isinstance(key, list):
-                minstart = maxsize
-                maxstop = -1
-                subclasses: dict[str, tuple[int, int]] = {}
-                for k in key:
-                    class_range = self.classes[k]
-                    subclasses[k] = class_range
-                    start, stop = class_range
-                    minstart = min(minstart, start)
-                    maxstop = max(maxstop, stop)
-                
-                subdata = self.data[start:stop]
-                sort=True
-                    
-            else:
-                raise KeyError(f"Incompatible Key Type. Must be {str} or {list}")
-            
-            return FeatureSignal.DataMap(
-                self.labels,
-                subclasses,
-                subdata,
-                self.info,
-                sort,
-            )
-        
-        def signal(self):
-            return FeatureSignal(
-                None,
-                None,
-                None,
-                None,
-                classes_datamap=self,
-            )
-        
-        def _build_succession(self, sort=True):
-            # Optimized
-            if sort:
-                self.classes = dict(
-                    sorted(
-                        self.classes.items(), 
-                        key=lambda item:item[1][1] # sort by value and by the end of the indices
-                    )
-                )
-            
-            self._succ_classes_list = list(self.classes.keys())
             
     def __init__(
         self, 
@@ -684,42 +613,35 @@ class FeatureSignal(LabeledSignal):
             return label_check
         
         # check for class specific feature extraction
-        
-        # if this is masked
-        bool_check = self._check_bool_filter(key)
-        if bool_check is not None:
-            return bool_check
+        class_check = self._check_classes(key)
+        if class_check is not None:
+            return class_check
         
         # reduce check
-        reduce_check = self._check_reduce(key)
+        reduce_check = self._check_reduction(key)
         if reduce_check is not None:
             return reduce_check
         
         new_labels = self._extract_labels(key)
-        new_classes = self._extract_classes_by_key(key)
+        if isinstance(key, np.ndarray) and key.dtype==np.bool_:
+            rows = np.any(key, axis=1)
+            cols = np.any(key, axis=0)
+            new_data = self.data[rows, :]
+            new_data = self.data[:, cols]
+            new_classes = self._extract_classes(rows)
+        else:
+            new_classes = self._extract_classes_by_key(key)
+            new_data = self.data[key]
+            
         return FeatureSignal(
             new_labels,
             new_classes,
-            self.data[key],
+            new_data,
             self.info
         )
     
     def _check_labels(self, key) -> FeatureSignal | None:
-        if (
-            (
-                isinstance(key, str) and
-                key in self.labels
-            ) or 
-            (
-                is_bearable(key, Sequence[str])
-                and key[0] in self.labels        
-            ) or
-            (
-                is_bearable(key, tuple[slice])
-                and key[0] in self.labels
-                and key[1] in self.labels
-            )
-        ):
+        if self._check_key_names(key, self.labels):
             label_check = super()._check_labels(key)
             
             # no rows are affected by this
@@ -735,30 +657,85 @@ class FeatureSignal(LabeledSignal):
         return None
     
     def _check_classes(self, key) -> FeatureSignal | None:
-        if (
+        if self._check_key_names(key, self._succ_classes_list):
+            
+            if isinstance(key, str):
+                start, stop = self.classes[key]
+                klass = self._extract_classes(slice(start, stop))
+                return FeatureSignal(
+                    self.labels,
+                    klass,
+                    self.data[start:stop, :],
+                    self.info,
+                    False,
+                )
+            elif is_bearable(key, Sequence[str]):
+                indices = [
+                    self.classes[label] 
+                    for label in key
+                ]
+                _, stop = indices[-1]
+                start, _ = indices[0]
+                consecutive = len(indices) == (stop - start)
+                if consecutive:
+                    indices = slice(start, stop)
+                classes = self._extract_classes(indices)
+                return FeatureSignal(
+                    self.labels,
+                    classes,
+                    self.data[indices, :],
+                    self.info,
+                    False,
+                )
+            elif (
+                isinstance(key, slice) and
+                isinstance(key.start, str) and
+                isinstance(key.stop, str)
+            ):
+                start, _ = self.classes[key.start]
+                _, stop = self.classes[key.stop]
+                if start < stop:
+                    s = slice(start, stop)
+                    return FeatureSignal(
+                        self.labels,
+                        self._extract_classes(s),
+                        self.data[s, :],
+                        self.info,
+                        False
+                    )
+                
+        return None
+    
+    def _check_key_names(self, key, check_list: Sequence[str]):
+        """
+        Checks if the key is related to the corresponding list
+        Only checks the first element if the key is a list.
+        """
+        return (
             (
                 isinstance(key, str) and
-                key in self._succ_classes_list
+                key in check_list
             ) or 
             (
-                is_bearable(key, Sequence[str])
-                and key[0] in self._succ_classes_list        
+                is_bearable(key, Sequence[str]) and
+                key[0] in check_list        
+            ) or
+            (
+                isinstance(key, slice) and
+                isinstance(key.start, str) and
+                isinstance(key.stop, str) and
+                key.start in check_list and
+                key.stop in check_list
             )
-        ):
-            pass
-        
-        return None
-        
-    def _extract_classes_by_key(self, key):
-        if isinstance(key, (slice, Sequence, np.ndarray, int)):
-            new_classes = self._extract_classes(key)
-        elif isinstance(key, tuple):
-            left, _ = key
-            new_classes = self._extract_classes(left)
-        else:
-            new_classes = self.classes
-        return new_classes
+        )
     
+    def _extract_classes_by_key(self, key: tuple | np.ndarray):
+        if isinstance(key, np.ndarray):
+            rows = np.any(key, axis=1)
+        else:
+            rows, _ = key
+        return self._extract_classes(rows)
+        
     def _extract_classes(self, rows: int | Sequence[int] | slice | np.ndarray):
         # The costs of this function are complementary. When deleting a small subsection,
         # the deletion construction of the new array takes time. When deleting a large

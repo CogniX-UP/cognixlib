@@ -31,7 +31,7 @@ from threading import Thread
 
 fs = 2048
 t = fs * 2
-channels = 32
+channels = 16
 channel_in = np.longdouble(35 * np.random.rand(t, channels))
 print(channel_in.shape)
 
@@ -73,7 +73,7 @@ for thr in t_l:
 t1 = time.perf_counter()
 print(f"SCI RES Threads: {t1-t0}")
     
-step = 2048
+step = 512
 real_res = np.zeros((t, channels))
 firs = [FIRfilter(blockSize=step, h=h, normalize=False) for i in range(channels)]
 frame_start = 0
