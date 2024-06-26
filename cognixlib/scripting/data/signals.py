@@ -179,7 +179,7 @@ class Signal:
             rows = np.any(key, axis=1)
             cols = np.any(key, axis=0)
             new_data = self.data[rows, :]
-            new_data = self.data[:, cols]
+            new_data = new_data[:, cols]
         else:
             new_data = self.data[key]
         return new_data
@@ -627,7 +627,7 @@ class FeatureSignal(LabeledSignal):
             rows = np.any(key, axis=1)
             cols = np.any(key, axis=0)
             new_data = self.data[rows, :]
-            new_data = self.data[:, cols]
+            new_data = new_data[:, cols]
             new_classes = self._extract_classes(rows)
         else:
             new_classes = self._extract_classes_by_key(key)

@@ -86,7 +86,7 @@ def run():
     t1 = time.perf_counter()
     print(t1-t0)
     assert np.array_equal(
-        f2['john'].data[0:5],
+        f2['john'].data[0:5, :],
         new_sig['john'].data
     )
     
@@ -94,9 +94,11 @@ def run():
     mask[15:23] = False
     mask[:, 2:4] = False
     new_sig = f2[mask]
-    print(new_sig.data.shape, new_sig.classes, type(new_sig))
+    test_np = f2['dam'].data[3:, [0, 1, 4]]
+
+    print(new_sig.classes)
     assert np.array_equal(
-        f2['dam'].data[3:10, :],
+        test_np,
         new_sig['dam'].data
     )
     
@@ -123,16 +125,25 @@ def run():
         None
     )
     
-    test_size = 500
-    test_array = [i for i in range(0, 10000, 20)]
-    test_slice = slice(49500, 50000)
+    test_array = [i for i in range(0, 100000, 20)]
     t1 = time.perf_counter()
-    for i in range(test_size):
-        test_sig = new_sig[test_array]
+    test_sig = new_sig[test_array, :]
     t2 = time.perf_counter()
-    print(test_sig.data.shape)
-    print(test_sig.classes)
-    print(f"WITHOUT ROWS: {(t2-t1)/test_size}")
+    
+    assert np.array_equal(
+        new_sig['k4'][np.arange(0, 10000, 20), :].data,
+        test_sig['k4'].data
+    )
+    print(f"WITHOUT ROWS: {(t2-t1)}")
+    test_slice = slice(49500, 76542)
+    test_sig = new_sig[test_slice, :]
+    assert np.array_equal(
+        new_sig['k7'][0:6542, :].data,
+        test_sig['k7'].data,
+    )
+    
+    t = new_sig['B':'D']['k3':'k6']
+    print(t, type(t), t.classes, t.labels)
     
 if __name__ == '__main__':
     run()

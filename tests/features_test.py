@@ -15,7 +15,8 @@ data = np.array(
 
 f = LabeledSignal(labels=labels, data=data, signal_info=None)
 f_new = f[f > -1]
-assert type(f_new) == Signal
+# this won't filter the way we think
+assert np.array_equal(f.data, f_new.data)
 t = f[2:5, [1]]
 assert len(t.data.shape) == 2
 t = f['x2':'x3']
