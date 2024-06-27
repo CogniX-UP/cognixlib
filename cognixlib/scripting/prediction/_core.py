@@ -64,16 +64,19 @@ class Validator(ABC):
     
     def __init__(
         self, 
-        predictor: BasePredictor
+        predictor: BasePredictor = None,
+        metrics: Sequence[str] = None,
     ):
         super().__init__()
         self.predictor = predictor
+        self.metrics = metrics
     
     @abstractmethod
     def score(
         self, 
         signal: FeatureSignal, 
-        predictor: BasePredictor = None
+        predictor: BasePredictor = None,
+        metrics: Sequence[str] = None,
     ) -> Mapping:
         """Returns the scores for various scoring functions."""
         pass
