@@ -11,6 +11,7 @@ dist/
 *.egg-info
 tests/data
 docs/build
+tests/test.py
 
 ryvencore-drawio.xml
 

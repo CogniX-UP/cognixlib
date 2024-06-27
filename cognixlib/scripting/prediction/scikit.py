@@ -1,6 +1,6 @@
-"""Defines the base oof scikit classifiers and the classifiers themselves"""
+"""Defines the base for scikit classifiers and the classifiers themselves"""
 from __future__ import annotations
-from ._core import BasePredictor
+from ._core import BasePredictor, BaseClassifier
 import numpy as np
 from sklearn.metrics import (
     accuracy_score,
@@ -9,7 +9,7 @@ from sklearn.metrics import (
     f1_score,
 )
 
-from sklearn.base import ClassifierMixin
+from sklearn.base import ClassifierMixin, BaseEstimator
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -25,144 +25,51 @@ from sklearn.model_selection import (
 import os
 from sklearn.preprocessing import LabelEncoder
 import joblib
-from ..data.signals import FeatureSignal
+from ..data.signals import FeatureSignal, Signal
 
-class SciKitClassifier(BasePredictor):
+class SciKitClassifier(BaseClassifier):
     """The base class for a `SciKit <https://scikit-learn.org/stable/index.html>`_ classifier"""
     
-    def __init__(self, model: ClassifierMixin):
-        self.model = model
-
-    def fit(self, signal: FeatureSignal):
+    def __init__(
+        self, 
+        model: BaseEstimator | ClassifierMixin,
+        m_flag = BaseClassifier.MetricFlag.all()
+    ):
+        super().__init__(m_flag)
+        self._model = model
     
-        X_train = signal.data
-        classes = signal.classes
-        
-        len_classes = len(list(classes.keys()))
-        
-        average_setting = 'binary'
-        if len_classes > 2:
-            average_setting = 'macro'
-
-        class_labels = {list(classes.keys())[_]:_ for _ in range(len(list(classes.keys())))}
-        
-        Y_train = []
-            
-        for class_label, (start_idx, end_idx) in classes.items():
-            for i in range(start_idx,end_idx):
-                Y_train.append(class_label)
-
-        Y_train = np.array(Y_train)
-
-        Y_train = np.array([class_labels[class_] for class_ in Y_train])
-
-        self.model.fit(X_train, Y_train)
-
-        y_pred = self.model.predict(X_train)
-
-        train_accuracy = accuracy_score(Y_train, y_pred)
-        train_precision = precision_score(Y_train, y_pred, average=average_setting)
-        train_recall = recall_score(Y_train, y_pred, average=average_setting)
-        train_f1 = f1_score(Y_train, y_pred, average=average_setting)
-
-        return self.model, train_accuracy, train_precision, train_recall, train_f1
+    @property
+    def model(self) -> BaseEstimator | ClassifierMixin:
+        return self._model
     
-    def predict(self, signal: FeatureSignal):
-        X_test = signal.data
-        classes = signal.classes
-
-        class_labels = {_:list(classes.keys())[_] for _ in range(len(list(classes.keys())))}
-
-        y_pred = self.model.predict(X_test)
-
-        y_predictions = [class_labels[pred] for pred in y_pred]
-
-        return y_predictions
-
-
-    def test(self, signal: FeatureSignal):        
-        X_test = signal.data
-        classes = signal.classes
-
-        class_labels = {list(classes.keys())[_]:_ for _ in range(len(list(classes.keys())))}
-        
-        Y_test = []
-            
-        for class_label, (start_idx, end_idx) in classes.items():
-            for i in range(start_idx,end_idx):
-                Y_test.append(class_label)
-
-        Y_test = np.array(Y_test)
-
-        Y_test = np.array([class_labels[class_] for class_ in Y_test])
-
-        y_pred = self.model.predict(X_test)
-
-        test_accuracy = accuracy_score(Y_test,y_pred)
-        test_precision = precision_score(Y_test,y_pred)
-        test_recall = recall_score(Y_test,y_pred)
-        test_f1 = f1_score(Y_test,y_pred)
-        return test_accuracy, test_precision, test_recall, test_f1
-
-    def split_data(self, signal: FeatureSignal, test_size: float):
+    def fit(
+        self, 
+        signal: FeatureSignal, 
+    ):
         
         X = signal.data
         classes = signal.classes
-              
-        Y = []
-            
+        
+        # we assume the feature signal is sorted
+        y = []
         for class_label, (start_idx, end_idx) in classes.items():
-            for i in range(start_idx,end_idx):
-                Y.append(class_label)
+            for _ in range(start_idx, end_idx):
+                y.append(class_label)
 
-        Y = np.array(Y)
+        # In scikit-learn, X and Y can be python lists, dataframes or numpy arrays
+        self.model.fit(X, y)
 
-        encoder = LabelEncoder()
-        Y = encoder.fit_transform(Y)
-
-        unique_classes = np.unique(Y)  
-
-        X_train,X_test,Y_train,Y_test = train_test_split(X,Y,test_size=test_size,random_state=1)
-
-        count = 0
-        features_train = []
-        classes_train = {}
-        for class_ in unique_classes:
-            x = X_train[Y_train == class_]
-            classes_train[class_] = (count,count + x.shape[0])
-            count += x.shape[0]
-            features_train.append(x)
-            
-        features_train = np.concatenate(features_train)
-        
-        train_signal = FeatureSignal(labels=signal.labels,classes=classes_train,data=features_train,signal_info=None)       
-        
-        count = 0
-        features_test = []
-        classes_test = {}
-        for class_ in unique_classes:
-            x = X_test[Y_test == class_]
-            classes_test[class_] = (count,count + x.shape[0])
-            count += x.shape[0]
-            features_test.append(x)
-            
-        features_test = np.concatenate(features_test)
-
-        test_signal = FeatureSignal(labels=signal.labels,classes=classes_test,data=features_test,signal_info=None)       
-
-        
-        return train_signal,test_signal
+    def predict(self, signal: Signal):
+        X = signal.data
+        return self.model.predict(X)
       
     def save(self, path:str):
         path = f"{path}.joblib"
-        joblib.dump(self.model, filename=path)
+        joblib.dump(self, filename=path)
 
     def load(self, path:str):
         path = f"{path}.joblib"
-        if os.path.exists(path):
-            return joblib.load(path)   
-        else:
-            return False
+        self.__dict__.update(joblib.load(path))
 
 class SVMClassifier(SciKitClassifier):
 
@@ -207,22 +114,16 @@ class CrossValidation:
         if len_classes > 2:
             self.average_setting = '_macro'
         
-        Y = []
+        y = []
             
         for class_label, (start_idx, end_idx) in classes.items():
-            for i in range(start_idx,end_idx):
-                Y.append(class_label)
+            for _ in range(start_idx,end_idx):
+                y.append(class_label)
 
-        Y = np.array(Y)
-        encoder = LabelEncoder()
-        Y = encoder.fit_transform(Y)
-
-        print(model,self.cv_model)
-        
-        cv_accuracy = cross_val_score(model,X,Y,cv=self.cv_model,scoring='accuracy').mean()
-        cv_precision = cross_val_score(model,X,Y,cv=self.cv_model,scoring=f'precision{self.average_setting}').mean()
-        cv_recall = cross_val_score(model,X,Y,cv=self.cv_model,scoring=f'recall{self.average_setting}').mean()
-        cv_f1 = cross_val_score(model,X,Y,cv=self.cv_model,scoring=f'f1{self.average_setting}').mean()
+        cv_accuracy = cross_val_score(model, X, y, cv=self.cv_model, scoring='accuracy').mean()
+        cv_precision = cross_val_score(model, X, y, cv=self.cv_model, scoring=f'precision{self.average_setting}').mean()
+        cv_recall = cross_val_score(model, X, y, cv=self.cv_model, scoring=f'recall{self.average_setting}').mean()
+        cv_f1 = cross_val_score(model, X ,y , cv=self.cv_model, scoring=f'f1{self.average_setting}').mean()
 
         return cv_accuracy,cv_precision,cv_recall,cv_f1
            

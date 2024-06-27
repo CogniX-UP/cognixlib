@@ -5,7 +5,7 @@ from abc import ABC
 
 from ..data.signals import Signal, FeatureSignal
 from dataclasses import dataclass
-from collections.abc import Sequence
+from collections.abc import Sequence, Set, Mapping
 from enum import IntFlag
 
 class BasePredictor(ABC):
@@ -14,11 +14,6 @@ class BasePredictor(ABC):
     @abstractmethod
     def fit(self, signal: FeatureSignal):
         """Trains/fits the model for prediction."""
-        pass
-
-    @abstractmethod
-    def test(self, signal: FeatureSignal):
-        """Tests the model using various methods."""
         pass
     
     @abstractmethod
@@ -39,76 +34,50 @@ class BasePredictor(ABC):
 class BaseClassifier(BasePredictor):
     """A construct for any kind of classification"""
     
-    class MetricFlag(IntFlag):
-        """Determines what metrics a classifier will produce"""
-        NONE=0
-        ACCURACY=1
-        PRECISION=2
-        RECALL=4
-        F1_SCORE=8
+    def __init__(self):
         
-        @classmethod
-        def all(cls):
-            return cls.ACCURACY | cls.PRECISION | cls.RECALL | cls.F1_SCORE
-        
-    @dataclass
-    class Metrics:
-        """
-        Metric results of models tesing / fit. Attributes can 
-        be None, depending on the metric requested.
-        """
-        
-        accuracy: float = None
-        precision: float = None
-        recall: float = None
-        f1: float = None
-        
-        def __str__(self) -> str:
-            res = 'Metrics:\n'
-            if self.accuracy:
-                res += f"Accuracy: {self.accuracy}\n"
-            if self.precision:
-                res += f"Precision: {self.precision}"
-            if self.recall:
-                res += f"Recall: {self.recall}"
-            if self.f1:
-                res += f"F1 Score: {self.f1}"
-            
-            return res
-    
-    def __init__(self, class_labels: Sequence[str] = None, m_flag: MetricFlag = MetricFlag.all()):
-        """
-
-        Args:
-            class_labels (Sequence[str], optional): Ordered labels of the classes. Defaults to None.
-        """
         super().__init__()
-        self.class_labels = class_labels
-        self.metric_flag = m_flag
         
-    def fit(self, signal: FeatureSignal) -> Metrics | None:
-        return self.fit_class(signal, self.metric_flag)
+        self._classes = Sequence[str] = None
+    
+    @property
+    def classes(self) -> Sequence[str]:
+        return self._classes
     
     @abstractmethod
-    def fit_class(self, signal: FeatureSignal, m_flag: MetricFlag = None) -> Metrics | None:
+    def fit(self, signal: FeatureSignal):
+        """Fits/trains the classifier based on a training set"""
         pass
     
-    def predict(self, signal: Signal) -> Sequence[str]:
-        return self.predict_class(signal, self.class_labels)
-    
     @abstractmethod
-    def predict_class(
-        self, 
-        signal: Signal, 
-        class_labels: Sequence[str] | None = None
-    ) -> Sequence[str]:
+    def predict(self, signal: Signal) -> Sequence[str]:
         """
-        Each row of the :code:`LabeledSignal` is a data point to
+        Each row of the :code:`Signal` is a data point to
         predict a class for.
         
         Returns:
             A sequence of the class predictions for each data point.
         """
         pass
+
+class Validator(ABC):
+    
+    def __init__(
+        self, 
+        predictor: BasePredictor
+    ):
+        super().__init__()
+        self.predictor = predictor
+    
+    @abstractmethod
+    def score(
+        self, 
+        signal: FeatureSignal, 
+        predictor: BasePredictor = None
+    ) -> Mapping:
+        """Returns the scores for various scoring functions."""
+        pass
+    
+    
     
 
