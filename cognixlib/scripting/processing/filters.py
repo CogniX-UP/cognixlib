@@ -40,7 +40,6 @@ class FilterParams:
     l_trans_bandwidth: float = "auto"
     h_trans_bandwidth: float = "auto"
     filter_length: str | int = "auto"
-    phase: Phase = Phase.ZERO
     
 class Filter(ABC):
     """The basic definition of a filter"""
@@ -65,19 +64,21 @@ class MNEFilter(Filter):
     
 class FIRFilter(MNEFilter):
     """
-    An implementation of an FIR filter that handles
-    the typical cases of lowpass, highpass, bandpass
-    and bandstop.
+    Creates an FIR filter that handles the typical cases of lowpass, highpass, bandpass and bandstop.
+    
+    The :code:`filter` method has not been implemented.
     """
     
     def __init__(
         self, 
         sfreq: float | StreamSignalInfo,
         params: FilterParams,
+        phase: Phase = Phase.ZERO,
         wnd: FilterWindow = FilterWindow.HAMMING,
         data_valid: Signal = None
     ):
         self._params = params
+        self._phase = phase
         self.sfreq = sfreq
         if isinstance(sfreq, StreamSignalInfo):
             self.sfreq = sfreq.nominal_srate
@@ -95,25 +96,27 @@ class FIRFilter(MNEFilter):
             h_freq=params.high_freq,
             filter_length=params.filter_length,
             method="fir",
-            phase=params.phase,
+            phase=phase,
             fir_window=wnd,
             fir_design="firwin"
         )
-        
-    def filter(self, signal: Signal, copy=True):
-        result_signal = signal.copy(False)
-        result_signal = self.ensure_correct_type(result_signal)
-                
-        filt_data = _overlap_add_filter(
-            result_signal.data.T,
-            self._fir,
-            None,
-            self._params.phase,
-            copy=copy
-        )
-        result_signal.data = filt_data.T
-        return result_signal
 
+class FIROfflineFilter(FIRFilter):
+    
+    def __init__(
+        self, 
+        sfreq: float | StreamSignalInfo, 
+        params: FilterParams, 
+        phase: Phase = Phase.ZERO, 
+        wnd: FilterWindow = FilterWindow.HAMMING, 
+        data_valid: Signal = None
+    ):
+        super().__init__(sfreq, params, phase, wnd, data_valid)
+        
+    def filter(self, signal: Signal, copy=True) -> Signal:
+        return super().filter(signal, copy)
+
+# TODO Refactor
 class IIRFilter(MNEFilter):
     """An implementation of an IIR Filter"""
     

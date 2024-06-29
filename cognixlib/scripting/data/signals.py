@@ -19,14 +19,20 @@ of slices for any extraction operation.
 
 from __future__ import annotations
 from collections.abc import Sequence, Mapping
-from .mixin import *
 from sys import maxsize
 from itertools import chain
 from copy import copy, deepcopy
 from beartype.door import is_bearable
+
 import numpy as np
 
 from .conversions import *
+from .mixin import *
+
+from typing import TypeVar, Generic
+
+VType = TypeVar('VType')
+"""Represents a :code:`TypeVar` for the elements of a signal"""
 
 class SignalKey:
     """
@@ -59,7 +65,7 @@ class SignalInfo:
         for key, value in kwargs.items():
             setattr(self, key, value)
         
-class Signal:
+class Signal(Generic[VType]):
     """
     Represents the data for signal processing
     
@@ -73,7 +79,7 @@ class Signal:
     """
     
     @classmethod
-    def concat(*signals: Signal, axis=0):
+    def concat(*signals: Signal, axis=0) -> Signal[VType]:
         if len(signals) == 1:
             return signals[0]
         
@@ -98,6 +104,10 @@ class Signal:
         self._unique_key = SignalKey(self)
     
     @property
+    def shape(self) -> tuple:
+        return self._data.shape
+    
+    @property
     def unique_key(self) -> SignalKey:
         """A unique identifier for this signal instance"""
         return self._unique_key
@@ -115,39 +125,42 @@ class Signal:
     def data(self, value: np.ndarray):
         self._data = value
     
+    def __len__(self):
+        return len(self._data)
+    
     def __str__(self):
         return str(self.data)
     
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Signal[VType] | VType:
         return Signal(self._new_data(key), self.info)
     
     def __setitem__(self, key, newvalue):
         self.data[key] = newvalue
     
-    def __add__(self, other):
+    def __add__(self, other) -> Signal[VType] | VType:
         add = self._extract_data(other)
         return Signal(self.data + add, self.info)
     
-    def __sub__(self, other):
+    def __sub__(self, other) -> Signal[VType | VType]:
         sub = self._extract_data(other)
         return Signal(self.data - sub, self.info)
     
-    def __eq__(self, other):
+    def __eq__(self, other) -> np.ndarray:
         return self.data == self._extract_data(other)
     
-    def __ne__(self, other):
+    def __ne__(self, other) -> np.ndarray:
         return self.data != self._extract_data(other)
     
-    def __lt__(self, other):
+    def __lt__(self, other) -> np.ndarray:
         return self.data < self._extract_data(other)
     
-    def __le__(self, other):
+    def __le__(self, other) -> np.ndarray:
         return self.data <= self._extract_data(other)
     
-    def __gt__(self, other):
+    def __gt__(self, other) -> np.ndarray:
         return self.data > self._extract_data(other)
     
-    def __ge__(self, other):
+    def __ge__(self, other) -> np.ndarray:
         return self.data >= self._extract_data(other)
     
     def _extract_data(self, other):
@@ -184,7 +197,7 @@ class Signal:
             new_data = self.data[key]
         return new_data
             
-    def _check_reduction(self, key) -> Signal | None:
+    def _check_reduction(self, key) -> Signal[VType] | None:
         """
         Checks to see if the signal must be reduced to a generic :class:`signal` 
         rather than keep its current type.
@@ -211,7 +224,7 @@ class Signal:
         
         return Signal(self.data[key], None)
  
-class TimeSignal(Signal, Timestamped):
+class TimeSignal(Signal[VType], Timestamped):
     """
     Represents signal data with additional timestamps per sample
     
@@ -268,7 +281,7 @@ class TimeSignal(Signal, Timestamped):
         new_sig = super().copy(copydata)
         return new_sig
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> VType | TimeSignal[VType] | Signal[VType]:
         
         reduce_check = self._check_reduction(key)
         if reduce_check is not None:
@@ -289,13 +302,13 @@ class TimeSignal(Signal, Timestamped):
             rows, _ = key
         return self.timestamps[rows]
 
-class LabeledSignal(Signal, Labeled):
+class LabeledSignal(Signal[VType], Labeled):
     """
     Represents signal data that is mapped to specific labels.
     """
     
     @classmethod
-    def concat(self, *signals: LabeledSignal, axis=0):
+    def concat(self, *signals: LabeledSignal[VType], axis=0) -> LabeledSignal[VType]:
         """
         Concatenates multiple :code:`LabeledSignal` (s). For a vertical 
         concatentation, the labels must be the same between the signals.
@@ -357,7 +370,7 @@ class LabeledSignal(Signal, Labeled):
             return -1
         return self._label_to_index[label]
     
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> VType | LabeledSignal[VType] | Signal[VType]:
         # Handle the cases of strings first
         label_check = self._check_labels(key)
         if label_check is not None:
@@ -454,7 +467,7 @@ class StreamSignalInfo(SignalInfo, StreamConfig):
         """Returns the data format of this info, based on LSL convention."""
         return lsl_to_np[self.data_format]
         
-class StreamSignal(TimeSignal, LabeledSignal):
+class StreamSignal(TimeSignal[VType], LabeledSignal):
     """
     Represents time signal data with additional channels / labels.
     
@@ -489,7 +502,7 @@ class StreamSignal(TimeSignal, LabeledSignal):
     def info(self) -> StreamSignalInfo:
         return self._info
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> VType | StreamSignal[VType] | Signal[VType]:
         # label check, rows are not affected / timestamps
         label_check = self._check_labels(key)
         if label_check is not None:
@@ -516,7 +529,7 @@ class StreamSignal(TimeSignal, LabeledSignal):
             self.info
         )
 
-class FeatureSignal(LabeledSignal):
+class FeatureSignal(LabeledSignal[VType]):
     """
     Represents a signal whose rows correspond to a feature class
     and whose columns correspond to a feature label. Can be used
@@ -605,7 +618,7 @@ class FeatureSignal(LabeledSignal):
         
         self._succ_classes_list = list(self.classes.keys())
         
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> VType | FeatureSignal[VType] | Signal[VType]:
         
         # check for label specific feature extraction
         label_check = self._check_labels(key)

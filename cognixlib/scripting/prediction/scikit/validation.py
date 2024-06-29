@@ -14,6 +14,7 @@ from sklearn.model_selection import (
 from ...data.signals import FeatureSignal
 from .._core import Validator, BasePredictor
 from collections.abc import Sequence
+from typing import Any
 
 class ScikitValidator(Validator):
 
@@ -45,10 +46,18 @@ class ScikitValidator(Validator):
             for _ in range(start_idx,end_idx):
                 y.append(class_label)
 
-        cross_res: Mapping = cross_validate(model, X, y, cv=self.validator, scoring=scoring)
+        cross_res: Mapping[str, Any] = cross_validate(model, X, y, cv=self.validator, scoring=scoring)
+        
+        def filter(name: str):
+            return (
+                name.startswith('test') or
+                name.startswith('train')
+            )
+            
         res = {
             name: val.mean()
             for name, val in cross_res.items()
+            if filter(name)
         }
         return res, cross_res
 

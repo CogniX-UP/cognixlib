@@ -42,7 +42,8 @@ h = create_filter(
     h_freq=30,
     filter_length=845,
     l_trans_bandwidth=8,
-    h_trans_bandwidth=30
+    h_trans_bandwidth=30,
+    phase='minimum'
 )
 
 t0 = time.perf_counter()

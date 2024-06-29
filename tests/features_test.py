@@ -14,6 +14,11 @@ data = np.array(
 )
 
 f = LabeledSignal(labels=labels, data=data, signal_info=None)
+s = f[:, 1]
+x = f[:, 1:2]
+print(s, type(s))
+print(x, type(x), x.labels)
+
 f_new = f[f > -1]
 # this won't filter the way we think
 assert np.array_equal(f.data, f_new.data)
@@ -22,8 +27,10 @@ assert len(t.data.shape) == 2
 t = f['x2':'x3']
 
 # Filter by a column
-rows = np.any(f['x1'] > -1, axis=1)
+rows = np.any(f['x1'] > 0, axis=1)
 f_new = f[rows, :]
+print(f_new, f_new.labels)
+f_new = f[f[:, 0] > 0, :]
 print(f_new, f_new.labels)
 
 # Filter by a row
