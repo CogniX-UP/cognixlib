@@ -4,14 +4,17 @@ This module implements the FBCSP algorithm, as described in the original
 is based on this `repo <https://github.com/jesus-333/FBCSP-Python>`.
 """
 
-import numpy as np
-import scipy.signal
-import scipy.linalg as la
+from __future__ import annotations
 
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.feature_selection import mutual_info_classif
 from collections.abc import Sequence, Mapping, MutableSequence
-from ..data.signals import Signal, LabeledSignal, StreamSignal
+from ..data.signals import Signal, LabeledSignal, StreamSignal, FeatureSignal
+
+import numpy as np
+import scipy.signal
+import scipy.linalg as la
+
 
 Trials = Sequence[LabeledSignal]
 PerBandTrials = Sequence[Trials]
@@ -24,8 +27,8 @@ class FBCSP_Binary:
     
     Note that this implementation doesn't concern itself with the filtering
     part. This should be external to the algorithm.
-    """
-    
+    """     
+            
     def __init__(
         self,
         m=2,
@@ -39,7 +42,7 @@ class FBCSP_Binary:
         self._fitted = False
         # per band CSP projection matrices
         # rows of single W: stationary spatial filters
-        # columns of single W^-1: common spatial patterns 
+        # columns of single W^T: common spatial patterns 
         self._w_per_band: list[np.ndarray] = None
         # {class: band[trial]}
         self._classes_csp: dict[str, list[np.ndarray]] = None
@@ -81,7 +84,11 @@ class FBCSP_Binary:
         """
         Calculates the spatial filters as described in :meth:`spatial_filters`. Then applies
         the logarithm and the covariance to extract the features. Finally, the most important
-        features are selected through `code:`MIBIF (Mutal Information). 
+        features are selected through `code:`MIBIF (Mutal Information) and returned as a
+        :class:`cognixlib.data.signals.FeatureSignal`.
+        
+        Note that this is shortcut for calling :meth:`calc_spatial_filters` and :meth:`extract_features`
+        together.
         """ 
         # Each key corresponds to a trial
         trials = filt_trials if filt_trials else self._filt_trials
@@ -91,14 +98,15 @@ class FBCSP_Binary:
         # then extracting how many bands we have
         
         self.calc_spatial_filters(trials)
-        self.calc_features()
+        return self.extract_features()
     
     # Features
     
-    def calc_features(self):
+    def extract_features(self, class_labels: Sequence[str] = None):
         """
-        Calculates the feature matrices of all trials per class. Also applies a feature
-        selection algorithm through Mutual Information (MIBIF)
+        Calculates the feature matrices of all trials per class. Then applies a feature
+        selection algorithm through Mutual Information (MIBIF) and extracts a :class:`cognixlib.data.signals.FeatureSignal`
+        containing the features from class one and two.
         """
         
         # Calculate the feature matrices using log var
@@ -106,11 +114,9 @@ class FBCSP_Binary:
         self._classes_features = dict(**self._classes_csp)
         for cls, per_band_csp in self._classes_csp.items():
             
-            res = []
-            for band_csp in per_band_csp:
-                res.append(self._log_var(band_csp))
-            
-            self._classes_features[cls] = res
+            self._classes_features[cls] = [
+                self._log_var(band_csp) for band_csp in per_band_csp
+            ]
         
         # Mutual Information
         
@@ -144,7 +150,7 @@ class FBCSP_Binary:
         
         m2 = self.m * 2
         # 1D-Array with all the mutual information value
-        mutual_info_vec = np.zeros(9 * m2)
+        mutual_info_vec = np.zeros(len(mutual_infos) * m2)
         # The CSP features are coupled (first with last). Save the CSP features
         # 
         other_info_matrix = np.zeros((len(mutual_info_vec), 4))
@@ -156,8 +162,72 @@ class FBCSP_Binary:
                 actual_idx = i * m2 + j    
                 mutual_info_vec[actual_idx] = mutual_info[j]
                 
-                other_info_matrix[actual_idx, 0] = i * m2 + m2 - j + 1
+                other_info_matrix[actual_idx, 0] = i * m2 + m2 - (j + 1) # position of the twin in the vector
+                other_info_matrix[actual_idx, 1] = actual_idx # position of the actual feature (in the vector)
+                other_info_matrix[actual_idx, 2] = i # current band
+                other_info_matrix[actual_idx, 3] = j # position of the original band
         
+        sorted_minfo_idices = np.flip(np.argsort(mutual_info_vec))
+        sorted_other_info = other_info_matrix[sorted_minfo_idices, :]
+        
+        feature_items: list[tuple[int, int]] = [] # (og band, og position in og band)
+        selected_features = sorted_other_info[:, 1][0:self.n_features]
+        
+        # Select the 2 * n most relevant features
+        for i in range(self._n_features):
+            
+            # Twin/Couple features of the current features
+            current_features_twin = sorted_other_info[i, 0]
+            features_item = ((int)(sorted_other_info[i, 2]), int(sorted_other_info[i, 3]))
+            feature_items.append(features_item)
+            
+            if not current_features_twin in selected_features:
+                # add the twin
+                twin_idx = sorted_other_info[:, 1] == current_features_twin
+                twin_feature_item = (int(sorted_other_info[twin_idx, 2][0]), int(sorted_other_info[twin_idx, 3][0]))
+                feature_items.append(twin_feature_item)
+        
+        feature_items.sort()
+        
+        # We want the number of original per class trials, not filtered
+        num_trials_one = len(self._filt_trials[class_one][0])
+        num_trials_two = len(self._filt_trials[class_two][0])
+        total_trials = num_trials_one + num_trials_two
+        num_features = len(feature_items) # should be 2 * self._n_features
+        
+        band_check = -1
+        features = np.zeros((total_trials, num_features))
+        
+        for i in range(num_features):
+            band, feat_indices = feature_items[i]
+            
+            if band != band_check:
+                band_check = band    
+                band_feat_one = self._classes_features[class_one][band]
+                band_feat_two = self._classes_features[class_two][band]
+                
+            features[0:num_trials_one, i] = band_feat_one[:, feat_indices]
+            features[num_trials_one: total_trials, i] = band_feat_two[:, feat_indices]
+        
+        feature_labels = [f'fbcsp_{i}' for i in range(num_features)]
+        if not class_labels:
+            class_labels = ['1', '2']
+        
+        feature_classes = {
+            class_labels[0]: (0, num_trials_one),
+            class_labels[1]: (num_trials_one, total_trials)
+        }
+        
+        return FeatureSignal(
+            feature_labels,
+            feature_classes,
+            features,
+            None,
+            False
+        )
+            
+            
+    
     def _log_var(self, trials: np.ndarray):
         """
         Calculates the logarithm and variance of a trial matrix. The trials should
@@ -173,7 +243,7 @@ class FBCSP_Binary:
         features = np.var(trials, 2)
         features = np.log(features)
         
-        return features
+        return features   
     
     # Spatial Filters
     
@@ -205,8 +275,8 @@ class FBCSP_Binary:
             
             for klass in classes:    
                 
-                trials = self._filt_trials[klass]
-                spatial_filter = self._apply_spatial_filter(trials, W)
+                band_trials = self._filt_trials[klass][i]
+                spatial_filter = self._apply_spatial_filter(band_trials, W)
                 self._classes_csp[klass].append(spatial_filter)
                 
     
@@ -228,16 +298,20 @@ class FBCSP_Binary:
             for trial in trials:
                 n_samples += trial.shape[0]
         
-        trials_csp = np.zeros(n_trials, n_channels, n_samples)
+        trials_csp = np.zeros((n_trials, n_channels, n_samples))
         
+        count = 0
         for i in range(n_trials):
             trial = trials[i]
             if isinstance(trial, Signal):
                 trial = trial.data
-            
+                
+            trial_samples, _ = trial.shape # remember, it's samples x channels
             # change it to channels x samples
             trial = trial.T
-            trials_csp[i] = W.dot(trial)
+            # we're storing all the trials in one single matrix
+            trials_csp[i, :, count:trial_samples + count] = W.dot(trial)
+            count += trial_samples
         
         return trials_csp
         
@@ -290,7 +364,7 @@ class FBCSP_Binary:
             self._w_per_band.append(W)
         
         
-    def _covariance(trials: Trials) -> np.ndarray:
+    def _covariance(self, trials: Trials) -> np.ndarray:
         """
         Calculates the covariance for each trial and returns their average.
 
@@ -302,7 +376,7 @@ class FBCSP_Binary:
             np.ndarray: Mean of the covariance alongside the channels.
         """
         n_trials = len(trials)
-        n_channels = len(trials[0].labels)
+        n_channels =  trials[0].shape[1]
         
         # A StreamSignal is samples x channels, so we transpose it because
         # we're working with channels x samples in here
