@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
 fs = 2048
-t = int(fs * 0.25)
+t = int(fs * 2)
 channels = 16
 channel_in = np.longdouble(35 * np.random.rand(t, channels))
 print(channel_in.shape)
@@ -48,7 +48,7 @@ h = create_filter(
 t0 = time.perf_counter()
 # this is much faster due to subprocess copying data
 with parallel_backend('threading'):
-    mne_res = _overlap_add_filter(channel_in.T, h, phase="zero",n_jobs=-1)
+    mne_res = _overlap_add_filter(channel_in.T, h, phase="linear",n_jobs=-1)
 t1 = time.perf_counter()
 print(f"MNE RES: {t1-t0}")
 
@@ -84,18 +84,17 @@ frame_end = step
 t0 = time.perf_counter()
 index = 0
 
-for i in range(10):
-    while frame_end <= channel_in.shape[0]:
-        index += 1
-        for i in range(channels):
-            res = firs[i].process(channel_in[:,i][frame_start:frame_end])
-            real_res[:,i][frame_start:frame_end] = res
-        frame_start = frame_end
-        frame_end += step
+while frame_end <= channel_in.shape[0]:
+    index += 1
+    for i in range(channels):
+        res = firs[i].process(channel_in[:,i][frame_start:frame_end])
+        real_res[:,i][frame_start:frame_end] = res
+    frame_start = frame_end
+    frame_end += step
         
     
 t1 = time.perf_counter()
-print(f"REAL RES: {(t1-t0)}")
+print(f"REAL RES: {(t1-t0)/index}")
 t0 = time.perf_counter()
 np_res = np.zeros((t, channels))
 for i in range(channels):

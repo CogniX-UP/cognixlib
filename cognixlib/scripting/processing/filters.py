@@ -103,6 +103,11 @@ class FIRFilter(MNEFilter):
 
 class FIROfflineFilter(FIRFilter):
     
+    class Mode(StrEnum):
+        MNE = 'mne'
+        SCIPY = 'scipy'
+        
+        
     def __init__(
         self, 
         sfreq: float | StreamSignalInfo, 
@@ -114,6 +119,7 @@ class FIROfflineFilter(FIRFilter):
         super().__init__(sfreq, params, phase, wnd, data_valid)
         
     def filter(self, signal: Signal, copy=True) -> Signal:
+        _overlap_add_filter()
         return super().filter(signal, copy)
 
 # TODO Refactor
