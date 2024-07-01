@@ -10,9 +10,9 @@ import time
 import random
 
 num_trials = 10
-bands = 1
+bands = 10
 # variable sample length to test the algorithm
-samples_range = (5600, 6000)
+csp_samples_range = (5*1900, 5*2048)
 channels = 16
 
 def create_filtered_trials(num_trials, bands, channels, samples_range) -> list[np.ndarray]:
@@ -27,39 +27,47 @@ def create_filtered_trials(num_trials, bands, channels, samples_range) -> list[n
         for _ in range(bands)
     ]
     
-filt_class_one: list[np.ndarray] = create_filtered_trials(num_trials, bands, channels, samples_range)
+filt_class_one: list[np.ndarray] = create_filtered_trials(num_trials, bands, channels, csp_samples_range)
+filt_class_two: list[np.ndarray] = create_filtered_trials(num_trials, bands, channels, csp_samples_range)
 
-filt_class_two: list[np.ndarray] = create_filtered_trials(num_trials, bands, channels, samples_range)
-
-trials = {
-    'class one': filt_class_one,
-    'class two': filt_class_two
+csp_trials = {
+    'left': filt_class_one,
+    'right': filt_class_two
 }
 
 fbcsp = FBCSP_Binary(
     m=4,
     n_features=4,
-    filt_trials=trials
 )
 
 t0 = time.perf_counter()
-features = fbcsp.fit(class_labels=['left', 'right'])
+features = fbcsp.calc_spat_filts(csp_trials)
 t1 = time.perf_counter()
+print(f'FBCSP Spatial Filters: {t1-t0} secs\n')
 
-print(f'FBCSP Fit: {t1-t0} secs')
-print(features.shape, features.labels, features.classes)
+filt_class_one: list[np.ndarray] = create_filtered_trials(40, bands, channels, (1900, 2048))
+filt_class_two: list[np.ndarray] = create_filtered_trials(40, bands, channels, (1900, 2048))
+feat_trials = {
+    'left': filt_class_one,
+    'right': filt_class_two 
+}
+
+t0 = time.perf_counter()
+features = fbcsp.select_features(feat_trials, ['left', 'right'])
+t1 = time.perf_counter()
+print(f'FBCSP Feature Selection: {t1-t0} secs\n')
 
 t0 = time.perf_counter()
 svm = SVMClassifier()
 svm.fit(features)
 t1 = time.perf_counter()
-print(f'FBCSP Train: {t1-t0} secs')
+print(f'FBCSP Train: {t1-t0} secs\n')
 
 test_sig = create_filtered_trials(
     num_trials=1,
     bands=bands,
     channels=channels,
-    samples_range=samples_range,
+    samples_range=(1900, 2048),
 )
 
 t0 = time.perf_counter()
@@ -67,5 +75,20 @@ feats = fbcsp.extract_features(test_sig)
 t1 = time.perf_counter()
 pred = svm.predict(feats)
 t2 = time.perf_counter()
-print(f'FBCS:\nExtract: {t1-t0} sec\nEval: {t2-t1} sec\nTotal: {t2-t0} sec')
+print(f'FBCSP Predict:\n\tExtract: {t1-t0} sec\n\tEval: {t2-t1} sec\n\tTotal: {t2-t0} sec')
 print(pred)
+
+# Saving
+
+t0 = time.perf_counter()
+j = fbcsp.to_json()
+t1 = time.perf_counter()
+print(f'To json: {t1-t0} secs')
+
+t0 = time.perf_counter()
+fbcsp.from_json(j)
+t1 = time.perf_counter()
+print(f'From json: {t1-t0} secs')
+
+feats = fbcsp.extract_features(test_sig)
+print(svm.predict(feats))

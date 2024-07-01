@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
 fs = 2048
-t = fs * 2
+t = fs * 1
 channels = 16
 channel_in = np.longdouble(35 * np.random.rand(t, channels))
 print(channel_in.shape)
