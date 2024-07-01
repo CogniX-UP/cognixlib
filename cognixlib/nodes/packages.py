@@ -26,7 +26,7 @@ Example:
 
 # Perhaps we'll take a look at automating it even further later
 
-from .classification import _nodes as classification
+from .prediction import _nodes as prediction
 from .file import _nodes as file
 from .stream import _nodes as stream
 from .utility import _nodes as utility
@@ -41,5 +41,5 @@ cognix_package: dict[str, list[type[Node]]] = {
     'test': get_package_nodes(test),
     'preprocessing': get_package_nodes(preprocessing),
     'feature_extration': get_package_nodes(feature_extraction),
-    'classification': get_package_nodes(classification)
+    'prediction': get_package_nodes(prediction)
 }

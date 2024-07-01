@@ -89,6 +89,10 @@ class SciKitClassifier(BaseClassifier):
     def predict(self, signal: Signal):
         X = signal.data
         return self.model.predict(X)
+
+    def predict_proba(self, signal: Signal):
+        X = signal.data
+        return self.model.predict_proba(X)
       
     def save(self, path:str):
         path = f"{path}.joblib"
@@ -159,6 +163,10 @@ class SVMClassifier(SciKitClassifier):
                 random_state=random_state,
             )
         super().__init__(model=model)
+    
+    @property
+    def model(self) -> SVC:
+        return self._model
         
 class RFClassifier(SciKitClassifier):
     """Wrapper for the `Random Forest <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_ in scikit."""
@@ -227,6 +235,10 @@ class RFClassifier(SciKitClassifier):
                 monotonic_cst=monotonic_cst,
             )
         super().__init__(model=model)
+    
+    @property
+    def model(self) -> RandomForestClassifier:
+        return self._model
         
 class LogisticRegressionClassifier(SciKitClassifier):
     """Wrapper for `Logistic Regression <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_ from scikit."""
@@ -291,6 +303,10 @@ class LogisticRegressionClassifier(SciKitClassifier):
                 l1_ratio=l1_ratio,
             )
         super().__init__(model=model)
+    
+    @property
+    def model(self) -> LogisticRegression:
+        return self._model
 
 class LDAClassifier(SciKitClassifier):
     """Wrapper for `Linear Discriminant Analysis <https://scikit-learn.org/stable/modules/generated/sklearn.discriminant_analysis.LinearDiscriminantAnalysis.html>`_ from scikit."""
@@ -324,3 +340,7 @@ class LDAClassifier(SciKitClassifier):
                 covariance_estimator=covariance_estimartor,
             )
         super().__init__(model=model)
+    
+    @property
+    def model(self) -> LinearDiscriminantAnalysis:
+        return self._model

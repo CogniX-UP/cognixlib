@@ -68,7 +68,7 @@ class FIRFilter(MNEFilter):
     
     The :code:`filter` method has not been implemented.
     """
-    
+
     def __init__(
         self, 
         sfreq: float | StreamSignalInfo,

@@ -587,7 +587,7 @@ class IIRFilterNode(Node):
                     
 class NotchFilterNode(Node):
     title = 'Notch Filter'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         freqs:float = CX_Float(50.0,desc='set the line noise freqeuncy')
@@ -666,7 +666,7 @@ class NotchFilterNode(Node):
 
 class ResamplingNode(Node):
     title = 'Resampling Data'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         upsample_factor:float = CX_Float(1.0,desc='factor to upsample by')
@@ -723,7 +723,7 @@ class ResamplingNode(Node):
           
 class RemoveTrendNode(Node):
     title = 'Remove Trend from EEG'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         detrendType: str = Enum('high pass','high pass sinc','local detrend',desc='type of detrending to be performed')
@@ -772,7 +772,7 @@ class RemoveTrendNode(Node):
     
 class SignalToMNENode(Node):
     title = 'Data to MNE'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         montage:str = Enum('biosemi32','biosemi16','biosemi64','standard_1005','standard_1020') 
@@ -831,7 +831,7 @@ class SignalToMNENode(Node):
 
 class MNEToSignalNode(Node):
     title = 'MNE to Signal'
-    version = '0.1'
+    # version = '0.1'
 
     class Config(NodeTraitsConfig):
         stream_name:str = CX_Str('Data Marker',desc='name of the stream')
@@ -892,7 +892,7 @@ class MNEToSignalNode(Node):
 
 class RemovalLineNoisePrepNode(Node):
     title = 'Line Noise Removal PREP'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         line_freq:float = CX_Float(50.0,desc='line noise frequency')
@@ -935,7 +935,7 @@ class RemovalLineNoisePrepNode(Node):
 
 class ReferencingPrepNode(Node):
     title = 'Referencing EEG Prep'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         ref_chs:str|list = CX_Str('eeg')
@@ -998,7 +998,7 @@ class ReferencingPrepNode(Node):
 
 class NoisyChannelPrepNode(Node):
     title = 'Noisy Channels Prep'
-    version = '0.1'
+    # version = '0.1'
     
     init_inputs = [PortConfig(label = 'data', allowed_data= mne.io.array.array.RawArray | Sequence[mne.io.array.array.RawArray])]
     init_outputs = [PortConfig(label = 'noisy channel detected data',allowed_data = mne.io.array.array.RawArray | Sequence[mne.io.array.array.RawArray])]
@@ -1030,7 +1030,7 @@ class NoisyChannelPrepNode(Node):
 
 class InterpolateEEGNode(Node):
     title = 'Interpolate bad channels MNE'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         reset_bads:bool = Bool()
@@ -1073,7 +1073,7 @@ class InterpolateEEGNode(Node):
  
 class RepairArtifactsICANode(Node):
     title = 'Repair Artifacts with ICA'
-    version = '0.1'
+    # version = '0.1'
     
     class Config(NodeTraitsConfig):
         n_components:int = CX_Int()
@@ -1131,7 +1131,7 @@ class RepairArtifactsICANode(Node):
             
 class AverageReferenceNode(Node):
     title = 'Average Rereference on EEG'
-    version = '0.1'
+    # version = '0.1'
     
     init_inputs = [PortConfig(label = 'data', allowed_data=mne.io.array.array.RawArray | Sequence[mne.io.array.array.RawArray])]
     init_outputs = [PortConfig(label = 'rereferenced data',allowed_data =mne.io.array.array.RawArray | Sequence[mne.io.array.array.RawArray])]

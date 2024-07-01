@@ -3,7 +3,7 @@ from __future__ import annotations
 from cognixcore.config import NodeConfig
 import numpy as np
 import mne
-import os,joblib
+import os, joblib
 
 from ...scripting.data import (
     Signal,
@@ -23,9 +23,10 @@ from cognixcore.config.traits import *
 from traitsui.api import CheckListEditor
 
 from collections.abc import Sequence, Mapping
+from enum import StrEnum
+
 from ...scripting.statistics import *
-from ...scripting.features.csp import FBCSP
-from ...scripting.features.filter_bank import FilterBank
+from ...scripting.features.fbcsp import FBCSP_Binary, PerBandTrials
 
 class MergeFeaturesNode(Node):
     """A node that merges features signals together."""
@@ -68,362 +69,136 @@ class MergeFeaturesNode(Node):
             return
         
         self.set_output(0, FeatureSignal.concat_classes(f_signals)) 
+
+class FBCSPMode(StrEnum):
+    FIT = 'fit'
+    SPATIAL_FILTERS = 'spatial filters'
+    SELECT_FEATURES = 'select features'
+    EXTRACT_FEATURES = 'extract features'
     
-class FBCSPTrainRealTimeNode(Node):
-    title = 'FBCSP Training'
+class FBCSPNode(Node):
+    title = 'FBCSP'
     version = '0.1'
-    
+
     class Config(NodeTraitsConfig):
-        n_filters: int = CX_Int(2,desc='the number of windows used for FBSCP')
-        srate: float = CX_Float(2048.0,desc='sampling frequency of the signal')
-        min_freq: float = CX_Float(0.0,desc='the minimum frequency in Hz in which the FBSCP functions -')
-        max_freq: float = CX_Float(0.0,desc='the maximum frequency in Hz in which the FBSCP functions -')
-        freq_bands_split: int = CX_Int(10,desc='how to split the frequency band')
-        
-        directory: str = Directory(desc='the saving directory')
-        default_filename: str = CX_Str("model", desc="the default file name")
-        varname: str = CX_Str(
-            "model", 
-            desc="the file name will be extracted from this if there is a string variable"
+        mode: str = Enum(FBCSPMode)
+        labels: Sequence[str] = List([CX_Str('cls1'), CX_Str('cls2')], minlen=2)
+        m: int = CX_Int(
+            2,
+            visible_when = "mode==FBCSPMode.FIT | mode==FBCSPMode.SPATIAL_FILTERS",
+            desc='First and last m spatial filtered sigs to use'
         )
+        n_features: int = CX_Int(
+            4,
+            visible_when = "mode==FBCSPMode.FIT | mode==FBCSPMode.SPATIAL_FILTERS",
+            desc='number of features to select - ranges from [n_features, 2*n_features]'
+        )
+        file_mode: str = Enum(['none', 'save', 'load'])
+        path: str = CX_Str('', visible_when="file_mode!='none'")
+        name: str = CX_Str('', visible_when="file_mode!='none'")
         
-        save_button: bool = Bool()
-    
-    init_inputs = [
-        PortConfig(label='data_class1', allowed_data=Sequence[LabeledSignal] | LabeledSignal),
-        PortConfig(label='data_class2',allowed_data=Sequence[LabeledSignal] | LabeledSignal)
-    ]
-    init_outputs = [PortConfig(label='spatial filters',allowed_data=Mapping)]
+        @observe('mode', post_init=True)
+        def on_mode_changed(self, ev: TraitChangeEvent):
+            if ev.new == ev.old:
+                return
+            self._fix_ports()
+        
+        def _fix_ports(self):
+            node: FBCSPNode = self.node
+            node.clear_ports()
+            mode = self.mode
+            init_outputs = [
+                PortConfig('fbcsp', allowed_data=FBCSP_Binary)
+            ]
+            if mode == FBCSPMode.FIT | mode == FBCSPMode.SPATIAL_FILTERS:
+                init_inputs = [
+                    PortConfig('spt trials', allowed_data=Mapping[str, PerBandTrials])
+                ]
+                if mode == FBCSPMode.FIT:
+                    init_outputs.append(
+                        PortConfig('train trials', allowed_data=FeatureSignal)
+                    )
+            elif mode == FBCSPMode.SELECT_FEATURES:
+                init_inputs = [
+                    PortConfig('fbcsp', allowed_data=FBCSP_Binary),
+                    PortConfig('feat trials', allowed_data=Mapping[str, PerBandTrials])
+                ]
+                init_outputs.append(
+                    PortConfig('train feat', allowed_data=FeatureSignal)
+                )
+            elif mode == FBCSPMode.EXTRACT_FEATURES:
+                init_inputs = [
+                    PortConfig('trials', allowed_data=Sequence[Sequence[Signal]])
+                ]
+                init_outputs.append(
+                    PortConfig('features', allowed_data=LabeledSignal)
+                )
+            
+            for inp in init_inputs:
+                node.create_input(inp)
+            for out in init_outputs:
+                node.create_output(out)
     
     @property
-    def config(self) -> FBCSPTrainRealTimeNode.Config:
-        return self._config 
-        
+    def config(self) -> Config:
+        return self._config
+    
+    @property
+    def mode(self) -> str:
+        return self.config.mode
+    
     def init(self):
-        self.dict = dict()
-
-        self.srate = self.config.srate
-        self.min_freq = self.config.min_freq if self.config.min_freq != 0.0 else None
-        self.max_freq = self.config.max_freq if self.config.min_freq != 0.0 else None
-        self.freq_splits = self.config.freq_bands_split if self.config.freq_bands_split!=0 else None
-        self.n_filters = self.config.n_filters
-        self.fbank = None
-
-        self.save_button = self.config.save_button
-
-        self.signal1 = None
-        self.signal2 = None
-        
-        dir = self.config.directory
-        filename = self.var_val_get(self.config.varname) 
-        if not filename or isinstance(filename, str) == False:
-            filename = self.config.default_filename
-        self.path = os.path.join(dir, filename)
-        
+        self._fbcsp: FBCSP_Binary = None
+        if self.config.file_mode == 'load':
+            path = self.config.path
+            name = self.config.name
+            self._fbcsp.load(os.path.join(path, f'{name}.json'))
+            
+        elif self.mode in [FBCSPMode.FIT, FBCSPMode.SPATIAL_FILTERS]:
+            self._fbcsp = FBCSP_Binary()
+    
     def stop(self):
-        print(self.fbank)
-        if self.save_button and self.fbank:
-            joblib.dump(value=self.dict,filename=f'{self.path}.joblib')
-        self.fbcsp_feature_extractor = None
+        s_mode: str = self.config.file_mode
+        if s_mode == 'save':
+            path = self.config.path
+            name = self.config.name
+            self._fbcsp.save(path, name)
         
     def update_event(self, inp=-1):
-        if inp==0: 
-            self.signal1: Sequence[LabeledSignal] = self.input(inp)
-            if isinstance(self.signal1, LabeledSignal):
-                self.signal1 = [self.signal1]
-        if inp==1: 
-            self.signal2: Sequence[LabeledSignal] = self.input(inp)
-            if isinstance(self.signal2, LabeledSignal):
-                self.signal2 = [self.signal2]
+        
+        if self.mode == FBCSPMode.FIT:
+            spt_trials: Mapping[str, PerBandTrials] = self.input(input)
+            if spt_trials is None:
+                return
+            train_feats = self._fbcsp.fit(spt_trials, self.config.labels)
+            self.set_output(0, self._fbcsp)
+            self.set_output(1, train_feats)
             
-        if self.signal1 and self.signal2:
-
-            if not self.fbank: 
-                print(self.path,os.path.exists(self.path + '.joblib'))
-                      
-                self.fbank = FilterBank(
-                            fs = self.srate,
-                            fmin = self.min_freq,
-                            fmax = self.max_freq,
-                            splits = self.freq_splits
-                        )
-                fbank_coeff = self.fbank.get_filter_coeff()
-                self.dict['fbank'] = self.fbank
-                
-                self.fbcsp_feature_extractor = FBCSP(self.n_filters)
-                
-            min_size = min(min([sig1.data.shape[0] for sig1 in self.signal1]) , min([sig2.data.shape[0] for sig2 in self.signal2]))
+        elif self.mode == FBCSPMode.SPATIAL_FILTERS:
+            spt_trials: Mapping[str, PerBandTrials] = self.input(input)
+            self._fbcsp.calc_spat_filts(spt_trials)
+            self.set_output(0, self._fbcsp)
+        
+        elif self.mode == FBCSPMode.SELECT_FEATURES:
+            if inp == 0:
+                self._fbcsp = self.input(inp)
+                self.set_output(0, self._fbcsp)
+            elif inp == 1:
+                self._feat_trials: Mapping[str, PerBandTrials] = self.input(inp)
             
-            data1 = [_ for sig1 in self.signal1 for _ in (sig1.data.transpose()[:,:min_size] if sig1.data.ndim == 3 else [sig1.data.transpose()[:,:min_size]])] 
-            data2 = [_ for sig2 in self.signal2 for _ in (sig2.data.transpose()[:,:min_size] if sig2.data.ndim == 3 else [sig2.data.transpose()[:,:min_size]])] 
-            
-            data = np.array(data1 + data2)          
-            
-            sum_of_data_class1 = (
-                self.signal1[0].data.shape[0] if self.signal1[0].data.ndim == 3 else 1
-                    if len(self.signal1) == 1 
-                    else sum([sig1.data.shape[0] if sig1.data.ndim == 3 else 1 for sig1 in self.signal1])
+            # both are needed for the node to output
+            if self._fbcsp and self._feat_trials:
+                self.set_output(
+                    1, 
+                    self._fbcsp.select_features(self._feat_trials, self.config.labels)
                 )
-            
-            sum_of_data_class2 = (
-                self.signal2[0].data.shape[0] if self.signal2[0].data.ndim == 3 else 1
-                    if len(self.signal2) == 1 
-                    else sum([sig2.data.shape[0] if sig2.data.ndim == 3 else 1 for sig2 in self.signal2])
-                )
-            
-            classes = {
-                '0' : (0,sum_of_data_class1),
-                '1' : (sum_of_data_class1,sum_of_data_class1 + sum_of_data_class2)
-            }
-                
-            class_labels = []
-            
-            for class_label, (start_idx, end_idx) in classes.items():
-                for i in range(start_idx,end_idx):
-                    class_labels.append(class_label)
-            
-            filtered_data = self.fbank.filter_data(data)
-            
-            self.fbcsp_feature_extractor.fit(filtered_data,class_labels)
-
-            self.dict['fbcsp_filters'] = self.fbcsp_feature_extractor
-
-            self.signal1,self.signal2 = None,None
-
-            self.set_output(0,self.dict)
-            
-            
-class FBCSPTransformRealTimeNode(Node):
-    title = 'FBCSP Transform'
-    version = '0.1'
-    
-    class Config(NodeTraitsConfig):
-        directory: str = Directory(desc='the saving directory')
-        varname: str = CX_Str(
-            "model", 
-            desc="the file name will be extracted from this if there is a string variable"
-        )
-    
-    init_inputs = [
-        PortConfig(label='data_class1',allowed_data=Sequence[LabeledSignal] | LabeledSignal),
-        PortConfig(label='data_class2',allowed_data=Sequence[LabeledSignal] | LabeledSignal),
-        PortConfig(label='spatial filters',allowed_data=Mapping)
-    ]
-    init_outputs = [PortConfig(label='features',allowed_data=FeatureSignal)]
-    
-    @property
-    def config(self) -> FBCSPTransformRealTimeNode.Config:
-        return self._config 
         
-    def init(self):
-        self.fbank = None
-        self.fbcsp_feature_extractor = None
-        self.signal1 = None
-        self.signal2 = None
-        self.dict = None
-        self.file_exists = False
-        
-        self.path_file = None
-        self.dict_file = None
-        self.dict_node = None
-        
-        dir = self.config.directory
-        filename = self.var_val_get(self.config.varname) 
-        
-        if filename and dir and isinstance(filename, str)!=False:
-            self.path_file = f'{dir}/{filename}'
-        
-        if self.path_file and os.path.exists(self.path_file + '.joblib'):
-            self.file_exists = True
-            self.dict_file = joblib.load(self.path_file + '.joblib')
-        else:
-            self.logger.error(msg='The path doenst exist')
-        
-    def update_event(self, inp=-1):
-        if inp==0: 
-            self.signal1: Sequence[LabeledSignal] = self.input(inp)
-            if isinstance(self.signal1,LabeledSignal):
-                self.signal1 = [self.signal1]
-        
-        if inp==1: 
-            self.signal2: Sequence[LabeledSignal] = self.input(inp)
-            if isinstance(self.signal2,LabeledSignal):
-                self.signal2 = [self.signal2]
-                
-        if inp==2: 
-            self.dict_node: Mapping = self.input(inp)
-
-        print(type(self.signal1),type(self.signal2),type(self.dict_node),type(self.dict_file))
-        if self.signal1 and self.signal2 and (self.dict_file or self.dict_node):
-                        
-            self.dict = self.dict_node if self.dict_node else self.dict_file
-                             
-            self.fbank = self.dict['fbank']
+        elif self.mode == FBCSPMode.EXTRACT_FEATURES:
+            band_trials: PerBandTrials = self.input(inp)
+            self.set_output(0, self._fbcsp)
+            self.set_output(1, self._fbcsp.extract_features(band_trials))
             
-            self.fbcsp_feature_extractor = self.dict['fbcsp_filters']
-
-            min_size = min(min([sig1.data.shape[0] for sig1 in self.signal1]) , min([sig2.data.shape[0] for sig2 in self.signal2]))
             
-            data1 = [_ for sig1 in self.signal1 for _ in (sig1.data.transpose()[:,:min_size] if sig1.data.ndim == 3 else [sig1.data.transpose()[:,:min_size]])] 
-            data2 = [_ for sig2 in self.signal2 for _ in (sig2.data.transpose()[:,:min_size] if sig2.data.ndim == 3 else [sig2.data.transpose()[:,:min_size]])] 
-                      
-            data = np.array(data1 + data2)          
-            
-            sum_of_data_class1 = (
-                self.signal1[0].data.shape[0] if self.signal1[0].data.ndim == 3 else 1
-                    if len(self.signal1) == 1 
-                    else sum([sig1.data.shape[0] if sig1.data.ndim == 3 else 1 for sig1 in self.signal1])
-                )
-            
-            sum_of_data_class2 = (
-                self.signal2[0].data.shape[0] if self.signal2[0].data.ndim == 3 else 1
-                    if len(self.signal2) == 1 
-                    else sum([sig2.data.shape[0] if sig2.data.ndim == 3 else 1 for sig2 in self.signal2])
-                )
-            
-            classes = {
-                '0' : (0,sum_of_data_class1),
-                '1' : (sum_of_data_class1,sum_of_data_class1 + sum_of_data_class2)
-            }
-            
-            print(classes)            
-            
-            class_labels = []
-            
-            for class_label, (start_idx, end_idx) in classes.items():
-                for i in range(start_idx,end_idx):
-                    class_labels.append(class_label)
-            
-            filtered_data = self.fbank.filter_data(data)
-            
-            features = self.fbcsp_feature_extractor.transform(filtered_data)
-            label_features = [f'feature_{i}' for i in range(features.shape[1])]
-            
-            signal_features = FeatureSignal(
-                labels=label_features,
-                classes = classes,
-                data = features,
-                signal_info = None
-            )
-            
-            print(features.shape)
-
-            self.signal1,self.signal2,self.dict_node = None,None,None
-            
-            self.set_output(0,signal_features)
-            
-    
-class FBCSPTransformNodeForOneSignal(Node):
-    title = 'FBCSP Transform Per Window'
-    version = '0.1'
-    
-    class Config(NodeTraitsConfig):
-        directory: str = Directory(desc='the saving directory')
-        varname: str = CX_Str(
-            "model", 
-            desc="the file name will be extracted from this if there is a string variable"
-        )
-    
-    init_inputs = [
-        PortConfig(label='data',allowed_data=Sequence[LabeledSignal] | LabeledSignal),
-        PortConfig(label='spatial filters',allowed_data=Mapping)
-    ]
-    init_outputs = [PortConfig(label='features',allowed_data=FeatureSignal)]
-    
-    @property
-    def config(self) -> FBCSPTransformNodeForOneSignal.Config:
-        return self._config 
-        
-    def init(self):
-        self.fbank = None
-        self.fbcsp_feature_extractor = None
-        self.signal = None
-        self.dict = None
-        self.file_exists = False
-        
-        self.path_file = None
-        self.dict_file = None
-        self.dict_node = None
-        
-        dir = self.config.directory
-        filename = self.var_val_get(self.config.varname) 
-        
-        if filename and dir and isinstance(filename, str)!=False:
-            self.path_file = f'{dir}/{filename}'
-        
-        if self.path_file and os.path.exists(self.path_file + '.joblib'):
-            self.file_exists = True
-            self.dict_file = joblib.load(self.path_file + '.joblib')
-        else:
-            self.logger.error(msg='The path doenst exist')
-        
-    def update_event(self, inp=-1):
-        if inp==0: 
-            self.signal: Sequence[LabeledSignal] = self.input(inp)
-            if isinstance(self.signal,LabeledSignal):
-                self.signal = [self.signal]
-        
-        if inp==1: 
-            self.dict_node: Mapping = self.input(inp)
-
-        if self.signal and (self.dict_file or self.dict_node):
-                        
-            self.dict = self.dict_node if self.dict_node else self.dict_file
-                             
-            self.fbank = self.dict['fbank']
-            
-            self.fbcsp_feature_extractor = self.dict['fbcsp_filters']
-
-            min_size = min([sig.data.shape[0] for sig in self.signal])
-            
-            data = [_ for sig in self.signal for _ in (sig.data.transpose()[:,:min_size] if sig.data.ndim == 3 else [sig.data.transpose()[:,:min_size]])]                  
-            data = np.array(data)          
-            
-            sum_of_data_class = (
-                self.signal[0].data.shape[0] if self.signal[0].data.ndim == 3 else 1
-                    if len(self.signal) == 1 
-                    else sum([sig.data.shape[0] if sig.data.ndim == 3 else 1 for sig in self.signal])
-                )
-            
-            classes = {
-                '0' : (0,sum_of_data_class),
-            }
-
-            class_labels = []
-            
-            for class_label, (start_idx, end_idx) in classes.items():
-                for i in range(start_idx,end_idx):
-                    class_labels.append(class_label)
-            
-            filtered_data = self.fbank.filter_data(data)
-            
-            features = self.fbcsp_feature_extractor.transform(filtered_data)
-            label_features = [f'feature_{i}' for i in range(features.shape[1])]
-            
-            signal_features = FeatureSignal(
-                labels=label_features,
-                classes = classes,
-                data = features,
-                signal_info = None
-            )
-            
-            print(features.shape)
-
-            self.signal,self.dict_node = None,None
-            
-            self.set_output(0,signal_features)
-     
-     
-     
-     
-     
-     
-     
-     
-     
-     
-     
-     
      
             
 class PSDMultitaperNode(Node):
@@ -818,7 +593,7 @@ class STFTNode(Node):
     class Config(NodeTraitsConfig):
         wsize: int = CX_Int(4,desc='length of the STFT window in samples(must be a multiple of 4)')
         tstep: int = CX_Int(2,desc='step between successive windows in samples')
-        class_:stt = CX_Str('class name',desc='class name')
+        class_: str = CX_Str('class name',desc='class name')
 
     init_inputs = [PortConfig(label='data',allowed_data=Sequence[LabeledSignal] | LabeledSignal | StreamSignal | Sequence[StreamSignal])]
     init_outputs = [PortConfig(label='out',allowed_data = FeatureSignal | Sequence[FeatureSignal])]

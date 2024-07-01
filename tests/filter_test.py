@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Thread
 
 fs = 2048
-t = fs * 1
+t = int(fs * 0.25)
 channels = 16
 channel_in = np.longdouble(35 * np.random.rand(t, channels))
 print(channel_in.shape)
@@ -40,10 +40,9 @@ h = create_filter(
     sfreq=fs, 
     l_freq=8, 
     h_freq=30,
-    filter_length=845,
     l_trans_bandwidth=8,
-    h_trans_bandwidth=30,
-    phase='minimum'
+    h_trans_bandwidth=8,
+    phase='zero'
 )
 
 t0 = time.perf_counter()
@@ -76,21 +75,27 @@ print(f"SCI RES Threads: {t1-t0}")
     
 step = 512
 real_res = np.zeros((t, channels))
-firs = [FIRfilter(blockSize=step, h=h, normalize=False) for i in range(channels)]
+firs = [
+    FIRfilter(method='ols', blockSize=step, h=h, normalize=False) 
+    for i in range(channels)
+]
 frame_start = 0
 frame_end = step
 t0 = time.perf_counter()
 index = 0
-while frame_end <= channel_in.shape[0]:
-    index += 1
-    for i in range(channels):
-        res = firs[i].process(channel_in[:,i][frame_start:frame_end])
-        real_res[:,i][frame_start:frame_end] = res
-    frame_start = frame_end
-    frame_end += step
+
+for i in range(10):
+    while frame_end <= channel_in.shape[0]:
+        index += 1
+        for i in range(channels):
+            res = firs[i].process(channel_in[:,i][frame_start:frame_end])
+            real_res[:,i][frame_start:frame_end] = res
+        frame_start = frame_end
+        frame_end += step
+        
     
 t1 = time.perf_counter()
-print(f"REAL RES: {(t1-t0)/index}")
+print(f"REAL RES: {(t1-t0)}")
 t0 = time.perf_counter()
 np_res = np.zeros((t, channels))
 for i in range(channels):
@@ -110,8 +115,8 @@ plt.title('Comparison of Filtered Signals')
 plt.figure()
 fft_res = fft(h)
 fft_freq = fftfreq(len(h), d=1/fs)
-
-plt.plot(fft_freq, np.abs(fft_res), label='Frequence Response')
+ind = slice(0, 80)
+plt.plot(fft_freq[ind], np.abs(fft_res)[ind], label='Frequence Response')
 plt.title('Filter FFT')
 
 plt.show()

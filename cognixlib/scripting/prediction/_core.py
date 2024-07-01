@@ -60,6 +60,10 @@ class BaseClassifier(BasePredictor):
         """
         pass
 
+    @abstractmethod
+    def predict_proba(self, signal: Signal):
+        pass
+
 class Validator(ABC):
     
     def __init__(

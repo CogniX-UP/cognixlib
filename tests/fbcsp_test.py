@@ -3,7 +3,7 @@ if __name__ != '__main__':
     
 from cognixlib.scripting.features.fbcsp import FBCSP_Binary
 from cognixlib.scripting.data.signals import Signal
-from cognixlib.scripting.prediction.scikit.classification import SVMClassifier
+from cognixlib.scripting.prediction.scikit.classification import SVMClassifier, LDAClassifier
 
 import numpy as np
 import time
@@ -36,12 +36,12 @@ csp_trials = {
 }
 
 fbcsp = FBCSP_Binary(
-    m=4,
+    m=2,
     n_features=4,
 )
 
 t0 = time.perf_counter()
-features = fbcsp.calc_spat_filts(csp_trials)
+fbcsp.calc_spat_filts(csp_trials)
 t1 = time.perf_counter()
 print(f'FBCSP Spatial Filters: {t1-t0} secs\n')
 
@@ -58,8 +58,9 @@ t1 = time.perf_counter()
 print(f'FBCSP Feature Selection: {t1-t0} secs\n')
 
 t0 = time.perf_counter()
-svm = SVMClassifier()
-svm.fit(features)
+#model = SVMClassifier(probability=True)
+model = LDAClassifier()
+model.fit(features)
 t1 = time.perf_counter()
 print(f'FBCSP Train: {t1-t0} secs\n')
 
@@ -73,10 +74,11 @@ test_sig = create_filtered_trials(
 t0 = time.perf_counter()
 feats = fbcsp.extract_features(test_sig)
 t1 = time.perf_counter()
-pred = svm.predict(feats)
+pred = model.predict(feats)
 t2 = time.perf_counter()
 print(f'FBCSP Predict:\n\tExtract: {t1-t0} sec\n\tEval: {t2-t1} sec\n\tTotal: {t2-t0} sec')
 print(pred)
+print(model.predict_proba(feats))
 
 # Saving
 
@@ -91,4 +93,4 @@ t1 = time.perf_counter()
 print(f'From json: {t1-t0} secs')
 
 feats = fbcsp.extract_features(test_sig)
-print(svm.predict(feats))
+print(model.predict(feats))
