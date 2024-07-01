@@ -38,13 +38,14 @@ print(channel_in.shape)
 h = create_filter(
     data=None, 
     sfreq=fs, 
-    l_freq=8, 
-    h_freq=30,
-    l_trans_bandwidth=8,
-    h_trans_bandwidth=8,
-    phase='zero'
+    l_freq=20, 
+    h_freq=24,
+    l_trans_bandwidth=2,
+    h_trans_bandwidth=2,
+    phase='linear'
 )
 
+np.apply_along_axis
 t0 = time.perf_counter()
 # this is much faster due to subprocess copying data
 with parallel_backend('threading'):
@@ -52,10 +53,12 @@ with parallel_backend('threading'):
 t1 = time.perf_counter()
 print(f"MNE RES: {t1-t0}")
 
+h_m = np.tile(h, (channels, 1)).T
 t0 = time.perf_counter()
-sci_res = np.zeros((t, channels))
-for i in range(channels):
-    sci_res[:,i] = oaconvolve(channel_in[:,i], h, mode="same")
+sci_res = oaconvolve(channel_in, h_m, 'same', 0)
+# sci_res = np.zeros((t, channels))
+# for i in range(channels):
+#    sci_res[:,i] = oaconvolve(channel_in[:,i], h, mode="same")
 t1 = time.perf_counter()
 print(f"SCI RES: {t1-t0}")
 
@@ -75,10 +78,7 @@ print(f"SCI RES Threads: {t1-t0}")
     
 step = 512
 real_res = np.zeros((t, channels))
-firs = [
-    FIRfilter(method='ols', blockSize=step, h=h, normalize=False) 
-    for i in range(channels)
-]
+fir = FIRfilter(method='upols', blockSize=step, h=h_m, normalize=False)
 frame_start = 0
 frame_end = step
 t0 = time.perf_counter()
@@ -86,9 +86,8 @@ index = 0
 
 while frame_end <= channel_in.shape[0]:
     index += 1
-    for i in range(channels):
-        res = firs[i].process(channel_in[:,i][frame_start:frame_end])
-        real_res[:,i][frame_start:frame_end] = res
+    res = fir.process(channel_in[frame_start:frame_end])
+    real_res[frame_start:frame_end] = res
     frame_start = frame_end
     frame_end += step
         
