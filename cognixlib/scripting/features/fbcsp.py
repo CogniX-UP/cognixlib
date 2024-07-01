@@ -2,6 +2,9 @@
 This module implements the FBCSP algorithm, as described in the original
 `paper <https://doi.org/10.1109/IJCNN.2008.4634130>`_. The implementation
 is based on this `repo <https://github.com/jesus-333/FBCSP-Python>`.
+
+A more detailed approach on the FBCSP can be found in this
+`paper <https://doi.org/10.3389/fnins.2012.00039>`_.
 """
 
 from __future__ import annotations
@@ -48,6 +51,8 @@ class FBCSP_Binary:
         self._classes_csp: dict[str, list[np.ndarray]] = None
         # {class: band[features]}
         self._classes_features: dict[str, list[np.ndarray]] = None
+        # (og band, feat index in og band), these are the selected features
+        self._feature_items: list[tuple[int, int]] = None 
     
     @property
     def fitted(self) -> bool:
@@ -80,7 +85,44 @@ class FBCSP_Binary:
         self._filt_trials = value
         self._fitted = False
     
-    def fit(self, filt_trials: Mapping[str, PerBandTrials] = None):
+    def extract_features(self, band_trials: PerBandTrials) -> LabeledSignal:
+        """
+        Extracts the features from filtered trials from a trial.
+        The per band trials should come in the same order as the
+        trials given when the FBCSP was "trained".
+        """
+        
+        features_list = []
+        n_bands = len(band_trials) # how many bands 
+        n_trials = len(band_trials[0]) # how many trials per band
+        n_tot_feats = len(self._feature_items)
+        
+        feat_input = np.zeros((n_trials, n_tot_feats))
+        
+        # Feature extraction
+        for i in range(n_bands):
+            W = self._w_per_band[i]
+            band_trial = band_trials[i]
+            # spatial filtering
+            spatial_trial = self._apply_spatial_filter(band_trial, W)
+            # log var -> features
+            features = self._log_var(spatial_trial)
+            features_list.append(features)
+            
+        # Feature selection
+        feat_labels = []
+        for i in range(n_tot_feats):
+            band_pos, feat_index = self._feature_items[i]
+            feat_labels.append(self._create_feat_label(band_pos, feat_index))
+            feat_input[:, i] = features_list[band_pos][:, feat_index]
+        
+        return LabeledSignal(feat_labels, feat_input, None)
+        
+    def fit(
+        self, 
+        filt_trials: Mapping[str, PerBandTrials] = None,
+        class_labels: Sequence[str] = None
+    ):
         """
         Calculates the spatial filters as described in :meth:`spatial_filters`. Then applies
         the logarithm and the covariance to extract the features. Finally, the most important
@@ -98,15 +140,17 @@ class FBCSP_Binary:
         # then extracting how many bands we have
         
         self.calc_spatial_filters(trials)
-        return self.extract_features()
+        return self.select_features(class_labels)
     
     # Features
     
-    def extract_features(self, class_labels: Sequence[str] = None):
+    def select_features(self, class_labels: Sequence[str] = None):
         """
         Calculates the feature matrices of all trials per class. Then applies a feature
         selection algorithm through Mutual Information (MIBIF) and extracts a :class:`cognixlib.data.signals.FeatureSignal`
         containing the features from class one and two.
+        
+        The selected features will range from [n, 2*n], where n=:attr:`n_features`
         """
         
         # Calculate the feature matrices using log var
@@ -124,9 +168,10 @@ class FBCSP_Binary:
         
         classes = list(self._filt_trials.keys())
         class_one, class_two = classes
-        num_features = len(self._classes_features[class_one])
+        num_bands = len(self._classes_features[class_one])
         
-        for i in range(num_features):
+        # each band will have its own mutual information
+        for i in range(num_bands):
             feat_one = self._classes_features[class_one][i]
             feat_two = self._classes_features[class_two][i]
             
@@ -172,15 +217,15 @@ class FBCSP_Binary:
         
         feature_items: list[tuple[int, int]] = [] # (og band, og position in og band)
         selected_features = sorted_other_info[:, 1][0:self.n_features]
-        
+
         # Select the 2 * n most relevant features
         for i in range(self._n_features):
             
-            # Twin/Couple features of the current features
-            current_features_twin = sorted_other_info[i, 0]
             features_item = ((int)(sorted_other_info[i, 2]), int(sorted_other_info[i, 3]))
             feature_items.append(features_item)
             
+            # Twin/Couple features of the current features
+            current_features_twin = sorted_other_info[i, 0]
             if not current_features_twin in selected_features:
                 # add the twin
                 twin_idx = sorted_other_info[:, 1] == current_features_twin
@@ -188,6 +233,7 @@ class FBCSP_Binary:
                 feature_items.append(twin_feature_item)
         
         feature_items.sort()
+        self._feature_items = feature_items
         
         # We want the number of original per class trials, not filtered
         num_trials_one = len(self._filt_trials[class_one][0])
@@ -198,18 +244,19 @@ class FBCSP_Binary:
         band_check = -1
         features = np.zeros((total_trials, num_features))
         
+        feature_labels = []
         for i in range(num_features):
-            band, feat_indices = feature_items[i]
+            band, feat_index = feature_items[i]
+            feature_labels.append(self._create_feat_label(band, feat_index))
             
             if band != band_check:
                 band_check = band    
                 band_feat_one = self._classes_features[class_one][band]
                 band_feat_two = self._classes_features[class_two][band]
                 
-            features[0:num_trials_one, i] = band_feat_one[:, feat_indices]
-            features[num_trials_one: total_trials, i] = band_feat_two[:, feat_indices]
+            features[0:num_trials_one, i] = band_feat_one[:, feat_index]
+            features[num_trials_one: total_trials, i] = band_feat_two[:, feat_index]
         
-        feature_labels = [f'fbcsp_{i}' for i in range(num_features)]
         if not class_labels:
             class_labels = ['1', '2']
         
@@ -226,7 +273,8 @@ class FBCSP_Binary:
             False
         )
             
-            
+    def _create_feat_label(self, band: int, feat_index: int):
+        return f'fcsp_band{band}_f{feat_index}'     
     
     def _log_var(self, trials: np.ndarray):
         """

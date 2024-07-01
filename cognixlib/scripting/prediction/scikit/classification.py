@@ -141,7 +141,7 @@ class SVMClassifier(SciKitClassifier):
     ):
         model = external_model
         if model is None:
-            SVC(
+            model = SVC(
                 C=C,
                 kernel=kernel,
                 degree=degree,
