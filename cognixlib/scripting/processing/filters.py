@@ -5,7 +5,8 @@ This module's approach is object-oriented and not function oriented
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from ..data import Signal, StreamSignal, StreamSignalInfo
+from collections.abc import Sequence
+from ..data import Signal, TimeSignal
 from mne.filter import (
     create_filter,
     _overlap_add_filter,
@@ -35,16 +36,11 @@ class FilterApplier(ABC):
         Applies the filter so that it removes phase distortion. Known also
         as forward-backwards method.
         """
-        
-    @classmethod
-    @abstractmethod
-    def ensure_correct_type(cls, signal: Signal) -> Signal:
-        pass
     
     @abstractmethod
     def filter(
         self, 
-        signal: Signal | np.ndarray
+        signal:  Signal | np.ndarray
     ) -> Signal | np.ndarray | None:
         """
         Filters an incoming signal or numpy array.
@@ -137,12 +133,10 @@ class FIROfflineApplier(FIRApplier):
         channels=1,
         phase: Phase = Phase.ZERO_SHIFT,
         method: Method = Method.OVERLAP_ADD,
-        remove_delay=True,
     ):
         super().__init__(h, channels)
         self._phase = phase
         self._method = method
-        self._remove_delay = remove_delay
     
     def filter(
         self, 
@@ -151,7 +145,7 @@ class FIROfflineApplier(FIRApplier):
 
         is_signal = isinstance(signal, Signal)
         data = signal.data if is_signal else signal
-        samples, channels = data.shape[0]
+        samples, channels = data.shape
         self._reconstruct_h(data)
         
         foa = FIROfflineApplier
@@ -209,32 +203,84 @@ class FIROnlineApplier(FIRApplier):
         h: np.ndarray, 
         channels=1,
         method=Method.OVERLAP_SAVE,
-        block_size=512
+        block_size=512,
     ):
         super().__init__(h, channels)
         
         self._method = method
         self._block_size = block_size
-        self._applier = FIRfilter(method, block_size, self._h_apply)
+        self._applier = FIRfilter(method, block_size, self._h_apply, normalize=False)
         
         # initial buffer
-        self._buffer = np.zeros(2*block_size, channels)
-        self._curr_idx = 0
+        self._data_buffer = np.zeros((3 * block_size, channels))
+        # in case this is a Stream Signal
+        self._times_buffer = np.zeros(3 * block_size)
+        self._curr_size = 0
     
+    @property
+    def apply_method(self) -> Method:
+        return self._method
+        
     def filter(
         self, 
-        signal: Signal | np.ndarray
-    ) -> Signal | np.ndarray | None:
+        signal: TimeSignal | Signal | np.ndarray
+    ) -> TimeSignal | Signal | np.ndarray | None:
         
-        return super().filter(signal)
+        is_time_signal = isinstance(signal, TimeSignal)
         
+        data = signal.data if isinstance(signal, Signal) else signal
+        rows, cols = data.shape
         
+        if self._curr_size <= len(self._data_buffer):
+            self._data_buffer[self._curr_size: self._curr_size + rows] = data
+            if is_time_signal:
+                self._times_buffer[self._curr_size: self._curr_size + rows] = signal.timestamps
+        else:
+            self._data_buffer = np.append(self._data_buffer, data, 0)
+            if is_time_signal:
+                self._times_buffer = np.append(self._times_buffer, signal.timestamps, 0)
+        self._curr_size += rows
         
-
+        if self._curr_size < self._block_size:
+            return None
+        
+        blocks = int(self._curr_size / self._block_size)
+        res_data = np.zeros((blocks * self._block_size, cols))
+        if is_time_signal:
+            res_time = np.zeros_like(blocks * self._block_size)
+            
+        frame_start = 0
+        frame_end = self._block_size
+        for _ in range(blocks):
+            res_data[frame_start:frame_end] = self._applier.process(self._data_buffer[frame_start:frame_end])
+            frame_start = frame_end
+            frame_end += self._block_size
+        
+        # if there are any values left i.e. the buffer isn't completely empty
+        ret_block = self._block_size * blocks
+        left_size = self._curr_size - ret_block
+        # perhaps we could use np.roll
+        self._data_buffer[0:left_size] = self._data_buffer[ret_block:self._curr_size]
+        
+        if is_time_signal:
+            res_time = self._times_buffer[0:ret_block].copy()
+        
+        self._curr_size -= ret_block
+        
+        # return results
+        if isinstance(signal, np.ndarray):
+            return res_data
+        elif isinstance(signal, Signal):
+            sig_res = signal.copy(False)
+            sig_res.data = res_data
+            if is_time_signal:
+                sig_res.timestamps = res_time
+            return sig_res
+        
 
 # TODO implement this
-class FIRApplierMNE(FIRApplier):
-    pass
+# class FIRApplierMNE(FIRApplier):
+#     pass
     
 
         

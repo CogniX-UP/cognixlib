@@ -43,8 +43,8 @@ import time
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 from joblib import parallel_backend
-from concurrent.futures import ThreadPoolExecutor
-from threading import Thread
+
+from cognixlib.scripting.processing.filters import FIROfflineApplier, FIROnlineApplier
 
 fs = 2048
 # t = int(fs*10800) # 3 hours
@@ -76,33 +76,43 @@ print(f"MNE RES: {t1-t0}")
 
 h_m = np.tile(h, (channels, 1)).T
 t0 = time.perf_counter()
-filt_filt = filtfilt(h, 1, channel_in, axis=0, padtype='even', padlen=50)
+filt_filt = filtfilt(h, 1, channel_in, axis=0, padtype='even', padlen=2000)
 t1 = time.perf_counter()
 print(f"FILT FILT RES: {t1-t0}")
 
 t0 = time.perf_counter()
-pad = 50
+# pad = 50
 # ch = np.pad(channel_in, [(pad, pad), (0, 0)], mode='reflect') # how to pad like filtfilt
 sci_res = oaconvolve(channel_in, h_m, 'same', 0)
 h_r = h_m[::-1]
 sci_res = oaconvolve(sci_res, h_r, 'same', 0)[0:t]
 t1 = time.perf_counter()
 print(f"SCIPY RES: {t1-t0}")
-    
-step = 256
+
+# FIR Offline
+fir_offline = FIROfflineApplier(h_m, channels, phase=FIROfflineApplier.Phase.ZERO)
+t0 = time.perf_counter()
+fir_off_res = fir_offline.filter(channel_in)
+t1 = time.perf_counter()
+print(f"FIR_OFF: {t1-t0}")
+
+step = 512
 real_res = np.zeros((t, channels))
-fir = FIRfilter(method='ols', blockSize=step, h=h_m, normalize=False)
+fir_online = FIROnlineApplier(h_m, channels, block_size=step, method='ols')
 frame_start = 0
-frame_end = step
 
 t0 = time.perf_counter()
 index = 0
-while frame_end <= channel_in.shape[0]:
+real_step = 44 # emulates real time
+counter = 0
+while counter <= channel_in.shape[0]:
     index += 1
-    res = fir.process(channel_in[frame_start:frame_end])
-    real_res[frame_start:frame_end] = res
-    frame_start = frame_end
-    frame_end += step
+    res = fir_online.filter(channel_in[counter: counter + real_step])
+    if res is not None:
+        real_res[frame_start:frame_start + len(res)] = res
+        frame_start += len(res)
+    
+    counter += real_step
     
 t1 = time.perf_counter()
 
@@ -122,9 +132,10 @@ print(f"Lfilter RES: {t1-t0}")
 fig, axs = plt.subplots(2, 1)
 top = axs[0]
 
-top.plot(filt_filt[:, 0], label='Filt Filt Signal')
-top.plot(sci_res[:, 0], label='SciPy Filtered Signal')
-top.plot(mne_res.T[:,0], label='MNE Filtered Signal', linestyle='dashed')
+top.plot(filt_filt[:, 2], label='Filt Filt Signal')
+top.plot(sci_res[:, 2], label='SciPy Filtered Signal')
+top.plot(fir_off_res[:, 2], label='FIR Offline Signal')
+top.plot(mne_res.T[:,2], label='MNE Filtered Signal', linestyle='dashed')
 #plt.plot(np.abs(filt_filt[:, 3]-sci_res[:,3]), label='Diff')
 top.legend()
 top.set_title('Comparison Zero Phase')
@@ -154,4 +165,4 @@ plt.plot(fft_freq_ht, np.abs(fft_res_ht), label='Freq Response SCIPY')
 plt.legend()
 plt.title('Filter FFT')
 
-# plt.show()
+plt.show()
