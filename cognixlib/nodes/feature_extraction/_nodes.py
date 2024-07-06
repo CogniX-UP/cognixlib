@@ -82,7 +82,7 @@ class FBCSPNode(Node):
 
     class Config(NodeTraitsConfig):
         mode: str = Enum(FBCSPMode)
-        labels: Sequence[str] = List([CX_Str('cls1'), CX_Str('cls2')], minlen=2)
+        labels: Sequence[str] = List(CX_Str, value = ['cls1', 'cls2'], minlen=2)
         m: int = CX_Int(
             2,
             visible_when = "mode==FBCSPMode.FIT | mode==FBCSPMode.SPATIAL_FILTERS",
@@ -97,7 +97,15 @@ class FBCSPNode(Node):
         path: str = CX_Str('', visible_when="file_mode!='none'")
         name: str = CX_Str('', visible_when="file_mode!='none'")
         
-        @observe('mode', post_init=True)
+        def __init__(self, node: Node = None, *args, **kwargs):
+            super().__init__(node, *args, **kwargs)
+            self._fix_ports()
+        
+        def load(self, data: dict):
+            super().load(data)
+            self._fix_ports()
+            
+        @observe('mode', post_init=False)
         def on_mode_changed(self, ev: TraitChangeEvent):
             if ev.new == ev.old:
                 return
@@ -110,7 +118,8 @@ class FBCSPNode(Node):
             init_outputs = [
                 PortConfig('fbcsp', allowed_data=FBCSP_Binary)
             ]
-            if mode == FBCSPMode.FIT | mode == FBCSPMode.SPATIAL_FILTERS:
+            init_inputs = []
+            if mode == FBCSPMode.FIT or mode == FBCSPMode.SPATIAL_FILTERS:
                 init_inputs = [
                     PortConfig('spt trials', allowed_data=Mapping[str, PerBandTrials])
                 ]

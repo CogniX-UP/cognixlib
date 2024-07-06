@@ -9,16 +9,18 @@ import numpy as np
 from ...scripting.data import LabeledSignal,FeatureSignal
 
 from ...scripting.prediction._core import BasePredictor
-from ...scripting.prediction.scikit import (
+from ...scripting.prediction.scikit.classification import (
     SVMClassifier,
     RFClassifier,
     SciKitClassifier,
     LogisticRegressionClassifier,
-    CrossValidation,
     LDAClassifier,
-    KFoldClass,
-    LeaveOneOutClass,
-    StratifiedKFoldClass
+)
+from ...scripting.prediction.scikit.validation import (
+    Validator,
+    KFoldValidator,
+    LeaveOneOutValidator,
+    StratifiedKFoldValidator,
 )
 
 class ModelNode(Node):

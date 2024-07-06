@@ -43,6 +43,7 @@ import time
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 from joblib import parallel_backend
+from random import randint
 
 from cognixlib.scripting.processing.filters import FIROfflineApplier, FIROnlineApplier
 
@@ -53,7 +54,8 @@ channels = 8
 channel_in = np.longdouble(35 * np.random.rand(t, channels))
 
 #%%
-h_t = firwin(845, [8, 30], pass_zero='bandpass', fs=fs)
+
+h_t = firwin(845, [8, 30], pass_zero=False, fs=fs)
 # k = minimum_phase(h_t)
 #%%
 h = create_filter(
@@ -103,10 +105,11 @@ frame_start = 0
 
 t0 = time.perf_counter()
 index = 0
-real_step = 44 # emulates real time
 counter = 0
+
 while counter <= channel_in.shape[0]:
     index += 1
+    real_step = randint(40, 80)
     res = fir_online.filter(channel_in[counter: counter + real_step])
     if res is not None:
         real_res[frame_start:frame_start + len(res)] = res

@@ -20,13 +20,17 @@ from ...scripting.data import (
 from ...scripting.processing.manipulation import *
 
 from ...scripting.processing.filters import (
-    FilterParams,
-    Phase,
-    FIRFilter,
-    IIRFilter,
-    Phase,
-    FilterWindow,
+    FIRApplier,
+    FIROnlineApplier,
+    FIROfflineApplier,
+    FilterType,
+    ft,
+    FIRDesigner,
+    FIRDesignerMNE,
+    FIRDesignerScipy
 )
+
+from sys import maxsize
 
 from ...scripting.mne.prep import (
     remove_trend_data,
@@ -445,146 +449,149 @@ class BadConfidenceRemoval(Node):
         
         conf_data = sig.ldm[conf_label]
         print(conf_data)
-        
-class FIRFilterNode(Node):
-    title = 'FIR Filter'
-    version = '0.1'
+ 
+class FIRDesignNode(Node):
     
+    title = 'FIR Design'
+    version = '0.1'
+        
     class Config(NodeTraitsConfig):
-        low_freq: float = CX_Float(desc='the low frequency of the filter')
-        high_freq: float = CX_Float(desc='the high frequency of the fitler')
-        l_trans_bandwidth:float = CX_Float(0.0, desc='the width of the transition band at the low cut-off frequency in Hz')
-        h_trans_bandwidth:float = CX_Float(0.0, desc='the width of the transition band at the high cut-off frequency in Hz')
-        filter_length: str = CX_String('auto',desc='a string representing the length of the filter (i.e 5s, 5ms etc)')
-        phase: str = Enum(Phase, desc='the phase of the filter')
-        window: str = Enum(FilterWindow, desc='a choice of windows for an fir filter')
-        ports: PortList = Instance(
-            PortList,
-            lambda: PortList(
-                list_type=PortList.ListType.OUTPUTS | PortList.ListType.INPUTS,
-                inp_params=PortList.Params(
-                    allowed_data=StreamSignal | Sequence[StreamSignal]
-                ),
-                out_params=PortList.Params(
-                    allowed_data=StreamSignal | Sequence[StreamSignal],
-                    suffix="_filt"
+        
+        design_method: str = Enum(['scipy', 'mne'], desc='design method of the FIR filter')
+        fs: int = CX_Int(512, desc='sampling frequency')
+        f_type: FilterType = Enum(FilterType, desc='filter type')
+        window: str = Enum(FIRDesignerScipy.Window, desc='window design')
+        cutoff: Sequence[int] = List(CX_Int(), desc='ideal cutoff frequencies')
+        length: int = CX_Int(100, visible_when="design_method=='scipy'")
+        trans_bandwidth: tuple[int, int] = Tuple(CX_Int(), CX_Int(), visible_when="design_method=='mne'")
+        min_phase: bool = Bool(False, desc="If on, a min phase filter is designed, that has no linear phase")
+
+        @observe('design_method')
+        def design_method_changed(self, ev: TraitChangeEvent):
+            if ev.new == ev.old:
+                return
+            if ev.new == 'mne' and len(self.cutoff) > 2:
+                self.cutoff = self.cutoff[0, 2]
+            
+        def designer(self) -> FIRDesigner:
+            if self.design_method == 'scipy':
+                return FIRDesignerScipy(
+                    self.fs,
+                    self.f_type,
+                    self.cutoff,
+                    self.length,
+                    self.window,
+                    self.min_phase
                 )
-            ),
-            style='custom'
-        )
+            else:
+                return FIRDesignerMNE(
+                    self.fs,
+                    self.f_type,
+                    self.cutoff,
+                    self.trans_bandwidth,
+                    self.window,
+                    self.min_phase
+                )
+    
+    init_outputs = [
+        PortConfig('h', allowed_data=np.ndarray)
+    ]
     
     @property
-    def config(self) -> FIRFilterNode.Config:
+    def config(self) -> Config:
         return self._config
     
     def init(self):
-        # TODO might include length later
-        c = self.config
+        self.designer = self.config.designer()
+    
+    def update_event(self, inp=-1):
+        res = self.designer.create_filter()
+        self.set_output(0, res)
+
+class FIRApplierNode(Node):
+    
+    title='FIR Applier'
+    version='0.1'
+    
+    class Config(NodeTraitsConfig):
         
-        try:
-            filter_length = int(c.filter_length)
-        except:
-            filter_length = c.filter_length
-        
-        self.fir_params = FilterParams(
-            c.low_freq,
-            c.high_freq,
-            c.l_trans_bandwidth if c.l_trans_bandwidth != 0 else "auto",
-            c.h_trans_bandwidth if c.h_trans_bandwidth != 0 else "auto",
-            filter_length,
-            c.phase 
+        apply_mode: str = Enum('offline', 'online')
+        phase: FIROfflineApplier.Phase = Enum(
+            FIROfflineApplier.Phase, 
+            visible_when="apply_mode=='offline'"
         )
+        offline_method = FIROfflineApplier.Method = Enum(
+            FIROfflineApplier.Method,
+            visible_when="apply_mode=='offline'"
+        )
+        online_method = FIROnlineApplier.Method = Enum(
+            FIROnlineApplier.Method,
+            visible_when="apply_method=='online'"
+        )
+        block_size: int = CX_Int(512, visible_when="apply_method=='online'")
         
-        self.fir_filter: FIRFilter = None
-                
+        def applier(self, channels: int, h: np.ndarray) -> FIRApplier:
+            if self.apply_method == 'offline':
+                return FIROfflineApplier(
+                    h,
+                    channels,
+                    self.phase,
+                    self.offline_method
+                )
+            else:
+                return FIROnlineApplier(
+                    h,
+                    channels,
+                    self.online_method,
+                    self.block_size
+                )
+        
+    init_inputs=[
+        PortConfig('h', allowed_data=np.ndarray),
+        PortConfig('sig', allowed_data=StreamSignal)
+    ]
+    init_outputs=[
+        PortConfig('f', allowed_data=StreamSignal)
+    ]
+    
+    @property
+    def config(self) -> Config:
+        return self._config
+    
+    def __init__(self, flow, config: NodeConfig = None):
+        super().__init__(flow, config)
+        self.applier: FIRApplier = None
+        self.channels = -1
+        self.h = None
+    
+    def stop(self):
+        self.applier = None
+        self.channels = -1
+        self.h = None
+    
     def update_event(self, inp=-1):
         
-        signals: StreamSignal = self.input(inp)
-        if not signals:
-            return
+        h_changed = False
+        if inp == 0:
+            h_changed = True
+            self.h = self.input(inp)
+        elif inp == 1:
+            sig: StreamSignal = self.input(inp)
+            self.channels = len(sig.labels)
         
-        if not isinstance(signals, Sequence):
-            signals = [signals]
-        
-        if not self.fir_filter:
-            first_signal = signals[0]
-            info = first_signal.info
-            guard_signal = FIRFilter.ensure_correct_type(first_signal)
-            if first_signal.unique_key != guard_signal.unique_key:
-                self.logger.warn(
-                    f"Incompatible Numpy Type: Converting from {first_signal.data.dtype} to {guard_signal.data.dtype}"
-                )
-            
-            self.fir_filter = FIRFilter(
-                info.nominal_srate,
-                self.fir_params,
-                self.config.window,
-                guard_signal,
+        if h_changed and self.channels:
+            self.applier = self.config.applier(
+                self.channels,
+                self.h
             )
-            
-        filtered_sigs: Sequence = []
-        for sig in signals:
-            sig = FIRFilter.ensure_correct_type(sig)
-            f_sig = self.fir_filter.filter(sig)
-            filtered_sigs.append(f_sig)
         
-        if len(filtered_sigs) == 1:
-            self.set_output(inp, filtered_sigs[0])
-        else:
-            self.set_output(inp, filtered_sigs)
-    
-class IIRFilterNode(Node):
-    title = 'IIR Filter'
-    version = '0.1'
-    
-    class Config(NodeTraitsConfig):
-        l_freq: float = CX_Float(desc='the low frequency of the filter')
-        h_freq: float = CX_Float(desc='the high frequency of the fitler')
-        phase:str = Enum('zero','zero-double','forward',desc='the phase of the filter')
-        
-    init_inputs = [PortConfig(label='data',allowed_data=StreamSignal | Sequence[StreamSignal])]
-    init_outputs = [PortConfig(label='filtered data',allowed_data=StreamSignal | Sequence[StreamSignal])]
-    
-    @property
-    def config(self) -> IIRFilterNode.Config:
-        return self._config
-    
-    def init(self):
-        pass
-                
-    def update_event(self, inp=-1):
-        
-        signal:StreamSignal = self.input(inp)
-        if not signal:
+        if not self.applier:
             return
         
-        if not isinstance(signal,list):
-            signal = [signal]
-        
-        
-        list_of_filtered_sigs:Sequence = []
-        for sig in signal:
-            
-            filtered_signal:StreamSignal = sig.copy()
-            
-            filtered_data = mne.filter.filter_data(
-                data = sig.data.Τ,
-                sfreq = sig.info.nominal_srate,
-                l_freq = self.config.l_freq,
-                h_freq = self.config.h_freq,
-                phase = self.config.phase,
-                method = 'iir'
-                )
-            
-            filtered_signal._data = filtered_data.Τ
-            
-            list_of_filtered_sigs.append(filtered_signal)
-            
-        if len(list_of_filtered_sigs) == 1:
-            self.set_output(0, list_of_filtered_sigs[0])
-        else:
-            self.set_output(0, list_of_filtered_sigs)
-                    
+        res = self.applier.filter(sig)
+        if res:
+            self.set_output(1, res)
+    
 class NotchFilterNode(Node):
     title = 'Notch Filter'
     # version = '0.1'

@@ -12,18 +12,161 @@ from mne.filter import (
     _overlap_add_filter,
     _iir_filter,
 )
-from scipy.signal import oaconvolve, convolve
+from scipy.signal import (
+    oaconvolve, 
+    convolve, 
+    minimum_phase,
+    firwin
+)
 from FIRconv import FIRfilter
 from dataclasses import dataclass
 from enum import StrEnum
+from numbers import Integral
 
 import numpy as np
 
 class FilterType(StrEnum):
+    PASS='pass'
+    """Either a lowpass or a bandpass, depending on the cutoff frequencies."""
+    STOP='stop'
+    """Either a highpass or a bandstop, depending on the cutoff frequencies."""
     LOWPASS='lowpass'
     HIGHPASS='highpass'
     BANDPASS='bandpass'
     BANDSTOP='bandstop'
+
+ft = FilterType
+
+# DESIGNERS
+
+class FIRDesigner(ABC):
+    """Designs an FIR filter."""
+    
+    def __init__(
+        self,
+        fs: int,
+        f_type: FilterType,
+        f_freq: int | Sequence[int],
+        min_phase=False,
+    ):
+        self.fs = fs
+        self.f_type = f_type
+        self.f_freq = f_freq
+        self.min_phase = min_phase
+
+    @abstractmethod
+    def create_filter(self) -> np.ndarray:
+        """Creates an FIR filter."""
+        pass
+
+class FIRDesignerScipy(FIRDesigner):
+    """Designs an FIR filter using Scipy's `fir_win <https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.firwin.html>_`"""
+    
+    # TODO: There are many more windows in firwin. Check them out
+    class Window(StrEnum):
+        HAMMING='hamming'
+        HANN='hann'
+        BLACKMAN='blackman'
+    
+    def __init__(
+        self, 
+        fs: int, 
+        f_type: FilterType, 
+        f_freq: int | Sequence[int],
+        length: int,
+        window: FIRDesignerScipy.Window = Window.HAMMING,
+        min_phase=False
+    ):
+        super().__init__(fs, f_type, f_freq, min_phase)
+        self.length = length
+        self.window = window
+    
+    def create_filter(self) -> np.ndarray:
+        pass_zero = self.f_type
+        if pass_zero == ft.PASS:
+            pass_zero = True
+        elif pass_zero == ft.STOP:
+            pass_zero = False
+        
+        h = firwin(self.length, self.f_freq, pass_zero=pass_zero, fs=self.fs)
+        if self.min_phase:
+            h = minimum_phase(h)
+        return h
+
+class FIRDesignerMNE(FIRDesigner):
+    """Designs an FIR filter using MNE's 'create_filter <https://mne.tools/stable/generated/mne.filter.create_filter.html>_'"""
+    
+    class Window(StrEnum):
+        HAMMING='hamming'
+        HANN='hann'
+        BLACKMAN='blackman'
+        
+    def __init__(
+        self, 
+        fs: int, 
+        f_type: FilterType,
+        f_freq: int | tuple[int, int],
+        trans_bandwidth: Sequence[int] = ['auto', 'auto'],
+        window: Window = Window.HAMMING,
+        min_phase=False
+    ):
+        super().__init__(fs, f_type, min_phase)
+        self.f_freq = f_freq
+        self.trans_bandwidth = trans_bandwidth
+        self.window = window
+    
+    def create_filter(self) -> np.ndarray:
+        
+        f_freq = self.f_freq
+        if isinstance(f_freq, Integral):
+            f_freq = [f_freq]
+            
+        n_f_freq = len(f_freq)
+        if (
+            self.f_type == ft.LOWPASS or 
+            self.f_type == ft.HIGHPASS and
+            n_f_freq != 1
+        ):
+            raise RuntimeWarning(f'A {self.f_type} filter was requested but got more cutoffs: {f_freq}')
+
+        if (
+            self.f_type == ft.LOWPASS or
+            (
+                self.f_type == ft.PASS and 
+                n_f_freq == 1
+            ) 
+        ):
+            l, h = None, f_freq[0]
+        
+        elif (
+            self.f_type == ft.HIGHPASS or
+            (
+                self.f_type == ft.PASS and
+                n_f_freq == 1
+            )
+        ):
+            l, h = f_freq[0], None
+        
+        elif self.f_type == ft.BANDPASS:
+            l, h = f_freq
+        elif self.f_type == ft.BANDSTOP:
+            h, l = f_freq
+        
+        l_trans, h_trans = self.trans_bandwidth
+        h = create_filter(
+            data=None,
+            sfreq=self.fs,
+            l_freq=l,
+            h_freq=h,
+            l_trans_bandwidth=l_trans,
+            h_trans_bandwidth=h_trans,
+            fir_window=self.window
+        )
+        if self.min_phase:
+            h = minimum_phase(h)
+        return h
+        
+# APPLIERS
     
 class FilterApplier(ABC):
     """The basic definition of an object that applies a filter"""
