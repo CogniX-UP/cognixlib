@@ -24,6 +24,7 @@ from traitsui.api import CheckListEditor
 
 from collections.abc import Sequence, Mapping
 from enum import StrEnum
+from beartype.door import is_bearable
 
 from ...scripting.statistics import *
 from ...scripting.features.fbcsp import FBCSP_Binary, PerBandTrials
@@ -70,6 +71,55 @@ class MergeFeaturesNode(Node):
         
         self.set_output(0, FeatureSignal.concat_classes(f_signals)) 
 
+class FBCSPTrialsNode(Node):
+    title = 'FBCSP Trials'
+    version = '0.1'
+    
+    class Config(NodeTraitsConfig):
+        inputs: PortList = Instance(
+            klass=PortList,
+            factory=lambda: PortList(
+                list_type=PortList.ListType.INPUTS,
+                inp_params=PortList.Params(
+                    allowed_data=Sequence[LabeledSignal] | Sequence[Sequence[LabeledSignal]]
+                )
+            ),
+            style='custom'
+        )
+    
+    init_outputs = [
+        PortConfig('cls', allowed_data=Mapping[str, PerBandTrials])
+    ]
+    
+    @property
+    def config(self) -> Config:
+        return self._config
+    
+    def init(self):
+        self.port_data: dict[int, Sequence[Sequence[LabeledSignal]]] = {}
+        self.conn_inputs = self.connected_inputs()
+        
+    def update_event(self, inp=-1):
+        
+        inp_data = self.input(inp)
+        
+        # transform it to a per band trial, despite having only one band
+        if is_bearable(inp_data, Sequence[LabeledSignal]):
+            inp_data = [inp_data]
+            
+        self.port_data[inp] = self.input()
+        if len(self.port_data) != len(self.conn_inputs):
+            return
+
+        res: Mapping[str, PerBandTrials] = {}
+        port_list = self.config.inputs
+        for idx, data in self.port_data.items():
+            cls_name = port_list[idx]
+            res[cls_name] = data
+        
+        self.set_output(0, res)
+        
+    
 class FBCSPMode(StrEnum):
     FIT = 'fit'
     SPATIAL_FILTERS = 'spatial filters'
@@ -82,7 +132,6 @@ class FBCSPNode(Node):
 
     class Config(NodeTraitsConfig):
         mode: str = Enum(FBCSPMode)
-        labels: Sequence[str] = List(CX_Str, value = ['cls1', 'cls2'], minlen=2)
         m: int = CX_Int(
             2,
             visible_when = "mode==FBCSPMode.FIT | mode==FBCSPMode.SPATIAL_FILTERS",
@@ -94,18 +143,14 @@ class FBCSPNode(Node):
             desc='number of features to select - ranges from [n_features, 2*n_features]'
         )
         file_mode: str = Enum(['none', 'save', 'load'])
-        path: str = CX_Str('', visible_when="file_mode!='none'")
+        path: str = Directory('', visible_when="file_mode!='none'")
         name: str = CX_Str('', visible_when="file_mode!='none'")
         
         def __init__(self, node: Node = None, *args, **kwargs):
             super().__init__(node, *args, **kwargs)
             self._fix_ports()
-        
-        def load(self, data: dict):
-            super().load(data)
-            self._fix_ports()
             
-        @observe('mode', post_init=False)
+        @observe('mode', post_init=True)
         def on_mode_changed(self, ev: TraitChangeEvent):
             if ev.new == ev.old:
                 return
@@ -179,7 +224,7 @@ class FBCSPNode(Node):
             spt_trials: Mapping[str, PerBandTrials] = self.input(input)
             if spt_trials is None:
                 return
-            train_feats = self._fbcsp.fit(spt_trials, self.config.labels)
+            train_feats = self._fbcsp.fit(spt_trials)
             self.set_output(0, self._fbcsp)
             self.set_output(1, train_feats)
             
@@ -199,7 +244,7 @@ class FBCSPNode(Node):
             if self._fbcsp and self._feat_trials:
                 self.set_output(
                     1, 
-                    self._fbcsp.select_features(self._feat_trials, self.config.labels)
+                    self._fbcsp.select_features(self._feat_trials)
                 )
         
         elif self.mode == FBCSPMode.EXTRACT_FEATURES:

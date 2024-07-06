@@ -181,12 +181,8 @@ class XDFImporterNode(Node):
         
         if filename and dir:
             path_file = os.path.join(dir, f'{filename}.xdf')
-        
-        formats = ['double64','float32','int32','string','int16','int8','int64']
-        
-        stream_collection: dict[str, StreamSignal] = {}
-        
-        print(path_file)
+    
+        self.stream_collection: dict[str, StreamSignal] = {}
         
         if path_file and os.path.exists(path_file):
             streams , header = pyxdf.load_xdf(path_file)
@@ -221,27 +217,26 @@ class XDFImporterNode(Node):
                     stream_data = np.array(stream_data)
                 else:
                     print(stream_data.dtype)    
-                stream_collection[stream_name] = StreamSignal(
+                self.stream_collection[stream_name] = StreamSignal(
                     timestamps=stream_timestamps,
                     data=stream_data,
                     labels=stream_channels,
                     signal_info=stream_info,
                     make_lowercase=self.config.lowercase_labels
                 )
-
-            self.set_output(0, stream_collection)
-            
-            valid_names = self.config.ports.valid_names
-            for index, valid_name in enumerate(valid_names):
-                stream = stream_collection.get(valid_name)
-                if stream:
-                    self.set_output(index + 1, stream)
         
         else:
             self.logger.error(msg=f'The path {path_file} doesnt exist')
               
     def update_event(self, inp=-1):
-        pass
+        self.set_output(0, self.stream_collection)
+        self.logger.info(self.stream_collection.keys())
+        
+        valid_names = self.config.ports.valid_names
+        for index, valid_name in enumerate(valid_names):
+            stream = self.stream_collection.get(valid_name)
+            if stream:
+                self.set_output(index + 1, stream)
                                  
 class SelectStreamNode(Node):
     title = 'Select Stream'

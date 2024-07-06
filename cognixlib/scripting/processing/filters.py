@@ -147,9 +147,9 @@ class FIRDesignerMNE(FIRDesigner):
         ):
             l, h = f_freq[0], None
         
-        elif self.f_type == ft.BANDPASS:
+        elif self.f_type == ft.BANDPASS or self.f_type == ft.PASS:
             l, h = f_freq
-        elif self.f_type == ft.BANDSTOP:
+        elif self.f_type == ft.BANDSTOP or self.f_type == ft.STOP:
             h, l = f_freq
         
         l_trans, h_trans = self.trans_bandwidth

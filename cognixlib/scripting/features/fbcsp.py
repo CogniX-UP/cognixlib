@@ -149,8 +149,7 @@ class FBCSP_Binary:
         
     def fit(
         self, 
-        filt_trials: Mapping[str, PerBandTrials] = None,
-        class_labels: Sequence[str] = None
+        filt_trials: Mapping[str, PerBandTrials] = None
     ):
         """
         Calculates the spatial filters as described in :meth:`spatial_filters`. Then applies
@@ -172,14 +171,13 @@ class FBCSP_Binary:
         # then extracting how many bands we have
         
         self.calc_spat_filts(trials)
-        return self.select_features(trials, class_labels)
+        return self.select_features(trials)
     
     # Features
     
     def select_features(
         self, 
-        filt_trials: Mapping[str, PerBandTrials],
-        class_labels: Sequence[str] = None
+        filt_trials: Mapping[str, PerBandTrials]
     ):
         """
         Calculates the feature matrices of all trials per class. Then applies a feature
@@ -297,12 +295,9 @@ class FBCSP_Binary:
             features[0:num_trials_one, i] = band_feat_one[:, feat_index]
             features[num_trials_one: total_trials, i] = band_feat_two[:, feat_index]
         
-        if not class_labels:
-            class_labels = ['1', '2']
-        
         feature_classes = {
-            class_labels[0]: (0, num_trials_one),
-            class_labels[1]: (num_trials_one, total_trials)
+            class_one: (0, num_trials_one),
+            class_two: (num_trials_one, total_trials)
         }
         
         return FeatureSignal(

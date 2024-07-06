@@ -92,7 +92,7 @@ class SegmentationNode(Node):
         self._valid_markers: list[str] = self.config.markers.valid_names
         # find valid markers
         self._m_name_to_port: dict[str, int] = {
-            m_name: index for index, m_name in enumerate(self._valid_markers)
+            m_name: index + 1 for index, m_name in enumerate(self._valid_markers)
         }
         
         self._seg_finder: SegmentFinder = None
@@ -463,7 +463,7 @@ class FIRDesignNode(Node):
         window: str = Enum(FIRDesignerScipy.Window, desc='window design')
         cutoff: Sequence[int] = List(CX_Int(), desc='ideal cutoff frequencies')
         length: int = CX_Int(100, visible_when="design_method=='scipy'")
-        trans_bandwidth: tuple[int, int] = Tuple(CX_Int(), CX_Int(), visible_when="design_method=='mne'")
+        trans_bandwidth: tuple[int, int] = CX_Tuple(CX_Int(), CX_Int(), visible_when="design_method=='mne'")
         min_phase: bool = Bool(False, desc="If on, a min phase filter is designed, that has no linear phase")
 
         @observe('design_method')
@@ -520,18 +520,18 @@ class FIRApplierNode(Node):
             FIROfflineApplier.Phase, 
             visible_when="apply_mode=='offline'"
         )
-        offline_method = FIROfflineApplier.Method = Enum(
+        offline_method: FIROfflineApplier.Method = Enum(
             FIROfflineApplier.Method,
             visible_when="apply_mode=='offline'"
         )
-        online_method = FIROnlineApplier.Method = Enum(
+        online_method: FIROnlineApplier.Method = Enum(
             FIROnlineApplier.Method,
-            visible_when="apply_method=='online'"
+            visible_when="apply_mode=='online'"
         )
-        block_size: int = CX_Int(512, visible_when="apply_method=='online'")
+        block_size: int = CX_Int(512, visible_when="apply_mode=='online'")
         
         def applier(self, channels: int, h: np.ndarray) -> FIRApplier:
-            if self.apply_method == 'offline':
+            if self.apply_mode == 'offline':
                 return FIROfflineApplier(
                     h,
                     channels,
@@ -572,6 +572,8 @@ class FIRApplierNode(Node):
     def update_event(self, inp=-1):
         
         h_changed = False
+        sig: StreamSignal = None
+        
         if inp == 0:
             h_changed = True
             self.h = self.input(inp)
@@ -585,12 +587,12 @@ class FIRApplierNode(Node):
                 self.h
             )
         
-        if not self.applier:
+        if not self.applier or sig is None:
             return
         
         res = self.applier.filter(sig)
         if res:
-            self.set_output(1, res)
+            self.set_output(0, res)
     
 class NotchFilterNode(Node):
     title = 'Notch Filter'
