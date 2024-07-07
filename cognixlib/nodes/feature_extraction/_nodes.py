@@ -18,6 +18,7 @@ from cognixcore import (
     Node, 
     FrameNode, 
     PortConfig,
+    ProgressState,
 )
 from cognixcore.config.traits import *
 from traitsui.api import CheckListEditor
@@ -86,11 +87,11 @@ class FBCSPTrialsNode(Node):
             ),
             style='custom'
         )
-    
+                
     init_outputs = [
         PortConfig('cls', allowed_data=Mapping[str, PerBandTrials])
     ]
-    
+        
     @property
     def config(self) -> Config:
         return self._config
@@ -98,6 +99,7 @@ class FBCSPTrialsNode(Node):
     def init(self):
         self.port_data: dict[int, Sequence[Sequence[LabeledSignal]]] = {}
         self.conn_inputs = self.connected_inputs()
+        print(self.conn_inputs)
         
     def update_event(self, inp=-1):
         
@@ -107,14 +109,14 @@ class FBCSPTrialsNode(Node):
         if is_bearable(inp_data, Sequence[LabeledSignal]):
             inp_data = [inp_data]
             
-        self.port_data[inp] = self.input()
+        self.port_data[inp] = inp_data
         if len(self.port_data) != len(self.conn_inputs):
             return
 
         res: Mapping[str, PerBandTrials] = {}
         port_list = self.config.inputs
         for idx, data in self.port_data.items():
-            cls_name = port_list[idx]
+            cls_name = port_list.valid_names[idx]
             res[cls_name] = data
         
         self.set_output(0, res)
@@ -182,7 +184,7 @@ class FBCSPNode(Node):
                 )
             elif mode == FBCSPMode.EXTRACT_FEATURES:
                 init_inputs = [
-                    PortConfig('trials', allowed_data=Sequence[Sequence[Signal]])
+                    PortConfig('trials', allowed_data=Signal | Sequence[Signal] | Sequence[Sequence[Signal]])
                 ]
                 init_outputs.append(
                     PortConfig('features', allowed_data=LabeledSignal)
@@ -202,10 +204,12 @@ class FBCSPNode(Node):
         return self.config.mode
     
     def init(self):
+        self._feat_trials: Mapping[str, PerBandTrials] = None
         self._fbcsp: FBCSP_Binary = None
         if self.config.file_mode == 'load':
             path = self.config.path
             name = self.config.name
+            self._fbcsp = FBCSP_Binary()
             self._fbcsp.load(os.path.join(path, f'{name}.json'))
             
         elif self.mode in [FBCSPMode.FIT, FBCSPMode.SPATIAL_FILTERS]:
@@ -221,7 +225,7 @@ class FBCSPNode(Node):
     def update_event(self, inp=-1):
         
         if self.mode == FBCSPMode.FIT:
-            spt_trials: Mapping[str, PerBandTrials] = self.input(input)
+            spt_trials: Mapping[str, PerBandTrials] = self.input(inp)
             if spt_trials is None:
                 return
             train_feats = self._fbcsp.fit(spt_trials)
@@ -229,7 +233,7 @@ class FBCSPNode(Node):
             self.set_output(1, train_feats)
             
         elif self.mode == FBCSPMode.SPATIAL_FILTERS:
-            spt_trials: Mapping[str, PerBandTrials] = self.input(input)
+            spt_trials: Mapping[str, PerBandTrials] = self.input(inp)
             self._fbcsp.calc_spat_filts(spt_trials)
             self.set_output(0, self._fbcsp)
         
@@ -242,17 +246,17 @@ class FBCSPNode(Node):
             
             # both are needed for the node to output
             if self._fbcsp and self._feat_trials:
+                self.progress = ProgressState(value=-1, message='Calculating Features')
                 self.set_output(
                     1, 
                     self._fbcsp.select_features(self._feat_trials)
                 )
+                self.progress = None
         
         elif self.mode == FBCSPMode.EXTRACT_FEATURES:
-            band_trials: PerBandTrials = self.input(inp)
+            band_trials: Signal | Sequence[Signal] | Sequence[Sequence[Signal]] = self.input(inp)
             self.set_output(0, self._fbcsp)
-            self.set_output(1, self._fbcsp.extract_features(band_trials))
-            
-            
+            self.set_output(1, self._fbcsp.extract_features(band_trials))           
      
             
 class PSDMultitaperNode(Node):

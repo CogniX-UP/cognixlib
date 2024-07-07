@@ -8,7 +8,7 @@ import numpy as np
 
 from ...scripting.data import LabeledSignal,FeatureSignal
 
-from ...scripting.prediction._core import BasePredictor
+from ...scripting.prediction._core import BasePredictor, BaseClassifier
 from ...scripting.prediction.scikit.classification import (
     SVMClassifier,
     RFClassifier,
@@ -31,8 +31,7 @@ class ModelNode(Node):
         self.model = None
     
     def update_event(self, inp=-1):
-        if self.model:
-            self.set_output(0, self.model)
+        self.set_output(0, self.model)
 
 class SVMNode(ModelNode):
     title = 'SVM Classifier'
@@ -41,26 +40,28 @@ class SVMNode(ModelNode):
     class Config(NodeTraitsConfig):
         C : float = CX_Float(1.0)
         degree: int = CX_Int(3)
-        kernel: str = Enum('linear','poly','rbf','sigmoid','precomputed')
-        gamma: str = Enum('scale','auto')
-        gamma_float: float = CX_Float(0.0)
-        selection_of_gamma: bool = Bool('gamma value from choices?')
+        kernel: str = Enum(SVMClassifier.Kernel.RBF, values=SVMClassifier.Kernel)
+        gamma: str = Enum('scale','auto', 'manual')
+        gamma_value: float = CX_Float(0.0, visible_when="gamma=='manual'")
 
-    init_inputs = []
-    init_outputs = [PortConfig(label='model', allowed_data=SciKitClassifier)]
+    init_outputs = [PortConfig(label='model', allowed_data=SVMClassifier)]
     
     @property
     def config(self) -> SVMNode.Config:
         return self._config
 
     def init(self):
-        self.params = {'C':self.config.C,
-                        'degree':self.config.degree,
-                        'kernel':self.config.kernel,
-                        'gamma':self.config.gamma if self.config.selection_of_gamma else self.config.gamma_float
-                        }
-        self.model = SVMClassifier(self.params)
-        self.set_output(0, self.model)
+        
+        gamma = self.config.gamma
+        if gamma == 'manual':
+            gamma = self.config.gamma_value
+            
+        self.model = SVMClassifier(
+            C=self.config.C,
+            kernel=self.config.kernel,
+            degree=self.config.degree,
+            gamma=gamma,
+        )
         
 class LDANode(ModelNode):
     title = 'LDA Classifier'
@@ -68,23 +69,25 @@ class LDANode(ModelNode):
 
     class Config(NodeTraitsConfig):
         solver: str = Enum('svd','lsqr','eigen',desc='solver to use')
-        shrinkage: float = CX_Float(0.5,desc='shrinkage parameter between 0 and 1')
-        shrinkage_default: bool = Bool()
+        shrinkage: str = Enum('auto', 'manual')
+        shrinkage_value: float = Range(0.5, min=0.0, max=0.0, visible_when="shrinkage=='manual'", desc='shrinkage value')
 
     init_inputs = []
-    init_outputs = [PortConfig(label='model', allowed_data=SciKitClassifier)]
+    init_outputs = [PortConfig(label='model', allowed_data=LDAClassifier)]
     
     @property
     def config(self) -> LDANode.Config:
         return self._config
 
     def init(self):
-        self.params = {'solver':self.config.solver,
-                        'shrinkage':self.config.shrinkage_default if self.config.shrinkage_default else self.config.shrinkage
-                        }
-        
-        self.model = LDAClassifier(self.params)
-        self.set_output(0, self.model)
+        shrinkage = self.config.shrinkage
+        if shrinkage == 'manual':
+            shrinkage = self.config.shrinkage_value
+            
+        self.model = LDAClassifier(
+            solver=self.config.solver,
+            shrinkage=shrinkage
+        )
     
 class RandomForestNode(ModelNode):
     title = 'Random Forest Classifier'
@@ -92,65 +95,69 @@ class RandomForestNode(ModelNode):
 
     class Config(NodeTraitsConfig):
         n_estimators : int = CX_Int(100,desc='the number of trees in the forest')
-        criterion: str = Enum('gini','entropy','log loss',desc='the number of trees in the forest')
-        max_depth: int = CX_Int(0,desc='the maximum depth of the tree')
-        min_samples_split: int|float = CX_Int(2,desc='the minimum number of samples required to split an internal node')
-        min_samples_leaf: int|float = CX_Int(1,desc='the minimum number of samples required to be at a leaf node')
-        max_features: str = Enum('sqrt','log2',0,desc='the number of features to consider when looking for the best split')       
-        max_leaf_nodes: int = CX_Int(0,desc='grow trees with max_leaf_nodes in best-first fashion')
+        criterion: str = Enum(RFClassifier.Criterion, desc='the number of trees in the forest')
+        max_depth: str = Enum('auto', 'manual')
+        max_depth_value: int = CX_Int(0, visible_when="max_depth=='manual'", desc='the maximum depth of the tree')
+        mini_samples_split: int|float = CX_Int(2, desc='the minimum number of samples required to split an internal node')
+        mini_samples_leaf: int|float = CX_Int(1, desc='the minimum number of samples required to be at a leaf node')
+        max_features: str = Enum('sqrt','log2', 'manual', desc='the number of features to consider when looking for the best split')
+        max_features_val: float = CX_Float(0)  
+        max_leaf_nodes: str = Enum('auto', 'manual')
+        max_leaf_nodes_val: int = CX_Int(0, visible_when="max_leaf_nodes=='manual'", desc='grow trees with max_leaf_nodes in best-first fashion')
 
-    init_outputs = [PortConfig(label='model',allowed_data=SciKitClassifier)]
-    init_inputs = []
+    init_outputs = [PortConfig(label='model',allowed_data=RFClassifier)]
 
     @property
     def config(self) -> RandomForestNode.Config:
         return self._config
 
     def init(self):
-        self.params = {
-            'n_estimators': self.config.n_estimators,
-            'criterion':self.config.criterion,
-            'max_depth':self.config.max_depth if self.config.max_depth !=0 else None,
-            'min_samples_split':self.config.min_samples_split,
-            'min_samples_leaf':self.config.min_samples_leaf,
-            'max_features':self.config.max_features if self.config.max_features !=0 else None,
-            'max_leaf_nodes':self.config.max_leaf_nodes if self.config.max_leaf_nodes !=0 else None,
-        }
-
-        print(self.params)
         
-        self.model = RFClassifier(self.params)
-        self.set_output(0, self.model)
+        max_depth = None if self.config.max_depth == 'auto' else self.config.max_depth_value
+        max_leaf_nodes = None if self.config.max_leaf_nodes == 'auto' else self.config.max_leaf_nodes_val
+        max_features = self.config.max_features if self.config.max_features != 'manual' else self.config.max_features_val
+        
+        self.model = RFClassifier(
+            n_estimators=self.config.n_estimators,
+            criterion=self.config.criterion,
+            max_depth=max_depth,
+            mini_samples_split=self.config.mini_samples_split,
+            mini_samples_leaf=self.config.mini_samples_leaf,
+            max_features=max_features,
+            max_leaf_nodes=max_leaf_nodes
+        )
+
+_LR = LogisticRegressionClassifier
 
 class LogisticRegressionNode(ModelNode):
     title = 'Logistic Regression Classifier'
     version = '0.1'
 
+    _LR = LogisticRegressionClassifier
+    
     class Config(NodeTraitsConfig):
-        penalty: str = Enum('l1','l2','elasticnet','None',desc='specify the norm of the penalty')
-        tol:float = CX_Float(1e-4,desc='tolerance for stopping criteria')
-        C:float = CX_Float(1.0,desc='inverse of regularization strength; must be a positive float')
-        solver:str = Enum('lbfgs','liblinear','newton-cg','newton-cholesky','sag','saga',desc='algorithm to use in the optimization problem')
-        max_iter:int = CX_Int(100,desc='maximum number of iterations taken for the solvers to converge')
+        penalty: str = Enum(_LR.Penalty.L2, values=_LR.Penalty, desc='specify the norm of the penalty')
+        tol:float = CX_Float(1e-4, desc='tolerance for stopping criteria')
+        C:float = CX_Float(1.0, desc='inverse of regularization strength; must be a positive float')
+        solver:str = Enum(_LR.Solver, desc='algorithm to use in the optimization problem')
+        max_iter:int = CX_Int(100, desc='maximum number of iterations taken for the solvers to converge')
 
-    init_outputs = [PortConfig(label='model',allowed_data=SciKitClassifier)]
-    init_inputs = []
+    init_outputs = [PortConfig(label='model', allowed_data=LogisticRegressionClassifier)]
 
     @property
     def config(self) -> LogisticRegressionNode.Config:
         return self._config
 
     def init(self):
-        self.params = {
-            'penalty' : self.config.penalty,
-            'tol' : self.config.tol,
-            'C' : self.config.C,
-            'solver' : self.config.solver,
-            'max_iter' : self.config.max_iter,
-        }
-
-        self.model = LogisticRegressionClassifier(self.params)
-        self.set_output(0, self.model)
+        
+        penalty = None if self.config.penalty == _LR.Penalty.NONE else self.config.penalty
+        self.model = LogisticRegressionClassifier(
+            penalty=penalty,
+            tol=self.config.tol,
+            C=self.config.C,
+            solver=self.config.solver,
+            max_iter=self.config.max_iter
+        )
 
 class TrainNode(Node):
 
@@ -166,43 +173,22 @@ class TrainNode(Node):
         PortConfig(label='train metrics',allowed_data=LabeledSignal)
     ]
 
-    @property
-    def config(self) -> TrainNode.Config:
-        return self._config
-
     def init(self):
 
         self.signal = None
-        self.classifier = None
-        self.load_model = False
-        self.model_exists = False
+        self.classifier: SciKitClassifier = None
 
     def update_event(self, inp=-1):
 
-        if inp == 0:self.signal = self.input(inp)
-        if inp == 1 and not self.model_exists:self.classifier:SciKitClassifier = self.input(inp)
+        if inp == 0:
+            self.signal = self.input(inp)
+        elif inp == 1:
+            self.classifier: SciKitClassifier = self.input(inp)
 
-        if self.signal and self.classifier:
-
-            self.model_exists = True
-
-            (
-                trained_model,
-                train_accuracy,
-                train_precision,
-                train_recall,
-                train_f1
-            ) = self.classifier.fit(self.signal)
+        if self.signal is not None and self.classifier:
             
-            metrics_signal = LabeledSignal(
-                labels=['train_accuracy','train_precision','train_recall','train_f1'],
-                data = np.array([train_accuracy,train_precision,train_recall,train_f1]),
-                signal_info = None
-            )
-            
+            self.classifier.fit(self.signal)
             self.set_output(0, self.classifier)
-            self.set_output(1, metrics_signal)
-            
 
 
 class TrainTestSplitNode(Node):
@@ -234,8 +220,6 @@ class TrainTestSplitNode(Node):
             train_signal,test_signal = self.model.split_data(signal=signal,test_size=self.tt_split)
             self.set_output(0, train_signal)
             self.set_output(1, test_signal)
-
-
 
 class CrossValidationNode(Node):
 
@@ -328,6 +312,7 @@ class LoadModel(Node):
 
     class Config(NodeTraitsConfig):
         directory: str = Directory(desc='the saving directory')
+        default: str = CX_Str('model')
         varname: str = CX_Str(
             "model", 
             desc="the file name will be extracted from this if there is a string variable"
@@ -342,25 +327,23 @@ class LoadModel(Node):
     def init(self):
         
         dir = self.config.directory
-        filename = self.var_val_get(self.config.varname) 
+        filename = self.var_val_get(self.config.varname)
+        if filename is None:
+            filename = self.config.default 
         path_file = None
         
+        path_file = os.path.join(dir, filename)
         print(path_file)
-        if filename and dir and isinstance(filename, str)!=False:
-            path_file = f'{dir}/{filename}'
-            
-        print(path_file,os.path.exists(path_file))
         
         if path_file:
             self.classifier = SciKitClassifier(None)
-            self.model = self.classifier.load(path=path_file)
-            if self.model:
-                self.set_output(0, SciKitClassifier(self.model))
-            else:
-                self.logger.error(msg='The path doesnt exist')
+            self.classifier.load(path=path_file)
         
     def update_event(self, inp=-1):
-        return super().update_event(inp)
+        if self.classifier.model:
+            self.set_output(0, self.classifier)
+        else:
+            self.logger.error(msg='The path doesnt exist')
 
 
 class TestNode(Node):
@@ -397,12 +380,17 @@ class TestNode(Node):
 
 
 
-class PredictNode(Node):
-    title = 'Predictor Classifier'
+class ClassifyNode(Node):
+    title = 'Classify'
     version = '0.1'
 
-    init_inputs = [PortConfig(label='data',allowed_data=FeatureSignal), PortConfig(label='model',allowed_data=SciKitClassifier)]
-    init_outputs = [PortConfig(label='predictions',allowed_data=LabeledSignal)]
+    init_inputs = [
+        PortConfig(label='data', allowed_data=LabeledSignal), 
+        PortConfig(label='model',allowed_data=BaseClassifier)
+    ]
+    init_outputs = [
+        PortConfig(label='predictions',allowed_data=LabeledSignal)
+    ]
 
     def init(self):
 
@@ -413,7 +401,7 @@ class PredictNode(Node):
     def update_event(self, inp=-1):
 
         if inp == 0:self.signal = self.input(inp)
-        if inp == 1:self.model:SciKitClassifier = self.input(inp)
+        if inp == 1:self.model:BaseClassifier = self.input(inp)
 
         if self.signal and self.model:
             predictions = self.model.predict(signal=self.signal)

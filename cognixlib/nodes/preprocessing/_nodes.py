@@ -61,12 +61,8 @@ class SegmentationNode(Node):
         markers: PortList = Instance(
             PortList,
             lambda: PortList(
-                list_type=PortList.ListType.OUTPUTS | PortList.ListType.INPUTS,
+                list_type=PortList.ListType.OUTPUTS,
                 min_port_count=1,
-                inp_params=PortList.Params(
-                  allowed_data=StreamSignal | Sequence[tuple[str, float]],
-                  prefix="in_",  
-                ),
                 out_params=PortList.Params(
                     allowed_data=StreamSignal | Sequence[StreamSignal],
                     suffix="_data",
@@ -78,6 +74,7 @@ class SegmentationNode(Node):
         
     init_inputs = [
         PortConfig(label='data', allowed_data=StreamSignal),
+        PortConfig(label='markers', allowed_data=StreamSignal | Sequence[tuple[str, float]])
     ]
     init_outputs = [
         PortConfig(label='og_data', allowed_data=StreamSignal)
@@ -356,6 +353,7 @@ class StreamSignalSelectionNode(Node):
             self.selected_labels = set(self.config.labels)
         else:
             self.selected_labels = { label.lower() for label in self.config.labels }
+        self.selected_labels = list(self.selected_labels)
         
         # these help for potential optimization
         # check _optimize_searchs
@@ -374,17 +372,9 @@ class StreamSignalSelectionNode(Node):
         
         if isinstance(self.start_ind, str):
             # no optimization found
-            subdata = signal.data[self.chan_inds]
+            subsignal = signal[:, self.chan_inds]
         else:
-            subdata = signal.data[self.start_ind: self.stop_ind]
-        
-        subsignal = StreamSignal(
-            signal.timestamps,
-            self.selected_labels,
-            subdata,
-            signal.info,
-            False
-        )
+            subsignal = signal[:, self.start_ind:self.stop_ind]
         
         self.set_output(0, subsignal)
     
@@ -401,9 +391,8 @@ class StreamSignalSelectionNode(Node):
             self.selected_labels = signal.labels
         # find the indices
         
-        print(signal.ldm._label_to_index)
         self.chan_inds = [
-            signal.ldm._label_to_index[label] 
+            signal.label_index(label)
             for label in self.selected_labels 
         ]
         self.chan_inds.sort()
@@ -563,6 +552,7 @@ class FIRApplierNode(Node):
         self.applier: FIRApplier = None
         self.channels = -1
         self.h = None
+        self._h_changed = False
     
     def stop(self):
         self.applier = None
@@ -571,17 +561,17 @@ class FIRApplierNode(Node):
     
     def update_event(self, inp=-1):
         
-        h_changed = False
         sig: StreamSignal = None
         
         if inp == 0:
-            h_changed = True
+            self._h_changed = True
             self.h = self.input(inp)
         elif inp == 1:
             sig: StreamSignal = self.input(inp)
             self.channels = len(sig.labels)
         
-        if h_changed and self.channels:
+        if self._h_changed and self.channels > 0:
+            self._h_changed = False
             self.applier = self.config.applier(
                 self.channels,
                 self.h
@@ -591,7 +581,7 @@ class FIRApplierNode(Node):
             return
         
         res = self.applier.filter(sig)
-        if res:
+        if res is not None:
             self.set_output(0, res)
     
 class NotchFilterNode(Node):

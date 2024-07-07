@@ -96,11 +96,11 @@ class SciKitClassifier(BaseClassifier):
       
     def save(self, path:str):
         path = f"{path}.joblib"
-        joblib.dump(self, filename=path)
+        joblib.dump(self.model, filename=path)
 
     def load(self, path:str):
         path = f"{path}.joblib"
-        self.__dict__.update(joblib.load(path))
+        self._model = joblib.load(path)
 
 class SVMClassifier(SciKitClassifier):
     """Wrapper for the `SVM <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html#sklearn.svm.SVC>`_ in scikit"""
@@ -248,6 +248,7 @@ class LogisticRegressionClassifier(SciKitClassifier):
         L1='l1'
         L2='l2'
         ELASTICNET='elasticnet'
+        NONE='None'
     
     class Solver(StrEnum):
         """Allowed values for solvers"""

@@ -67,6 +67,7 @@ class FBCSP_Binary:
     @m.setter
     def m(self, m: int):
         self._m = m
+        # TODO reason about whether this is needed
         self._fitted = False
     
     @property
@@ -96,7 +97,9 @@ class FBCSP_Binary:
         
         with open(path, 'rb') as file:
             json_bytes = file.read()
-        self.filt_trials(json_bytes)
+            data: dict = loads(json_bytes)
+            for key, val in data.items():
+                setattr(self, key, val)
     
     def to_json(self):
         data = {
@@ -114,12 +117,22 @@ class FBCSP_Binary:
                 value = [np.array(v) for v in value]
             setattr(self, key, value)
         
-    def extract_features(self, band_trials: PerBandTrials) -> LabeledSignal:
+    def extract_features(
+        self, 
+        band_trials: Signal | Sequence[Signal] | Sequence[Sequence[Signal]]
+    ) -> LabeledSignal:
         """
         Extracts the features from filtered trials from a trial.
         The per band trials should come in the same order as the
         trials given when the FBCSP was "trained".
         """
+        
+        # This functions needs a Sequence[Sequence[Signal]]
+        # These ifs help converting it if one band was given as a LabeledSignal
+        if isinstance(band_trials, Signal):
+            band_trials = [band_trials]
+        if isinstance(band_trials[0], Signal):
+            band_trials = [band_trials]
         
         features_list = []
         n_bands = len(band_trials) # how many bands 

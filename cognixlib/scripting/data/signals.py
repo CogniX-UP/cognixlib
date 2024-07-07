@@ -18,7 +18,7 @@ of slices for any extraction operation.
 """
 
 from __future__ import annotations
-from collections.abc import Sequence, Mapping
+from collections.abc import Sequence, Mapping, Iterable
 from sys import maxsize
 from itertools import chain
 from copy import copy, deepcopy
@@ -340,15 +340,19 @@ class LabeledSignal(Signal[VType], Labeled):
     
     def __init__(
         self,
-        labels: Sequence[str], 
+        labels: Iterable[str], 
         data: np.ndarray, 
         signal_info: SignalInfo,
         make_lowercase=False,
     ):
-        Signal.__init__(self, data, signal_info)
-        Labeled.__init__(self, labels, make_lowercase)
         if isinstance(labels, np.ndarray):
             labels = labels.flat
+        elif not isinstance(labels, Sequence):
+            labels = list(labels)
+            
+        Signal.__init__(self, data, signal_info)
+        Labeled.__init__(self, labels, make_lowercase)
+            
         self._label_to_index: dict[str, int] = {
             label:index for index, label in enumerate(labels)
         }

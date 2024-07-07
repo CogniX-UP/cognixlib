@@ -13,7 +13,7 @@ num_trials = 10
 bands = 10
 # variable sample length to test the algorithm
 csp_samples_range = (5*1900, 5*2048)
-channels = 16
+channels = 32
 
 def create_filtered_trials(num_trials, bands, channels, samples_range) -> list[np.ndarray]:
     return [
@@ -53,7 +53,7 @@ feat_trials = {
 }
 
 t0 = time.perf_counter()
-features = fbcsp.select_features(feat_trials, ['left', 'right'])
+features = fbcsp.select_features(feat_trials)
 t1 = time.perf_counter()
 print(f'FBCSP Feature Selection: {t1-t0} secs\n')
 
