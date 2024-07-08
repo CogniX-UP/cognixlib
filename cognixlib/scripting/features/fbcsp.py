@@ -97,9 +97,7 @@ class FBCSP_Binary:
         
         with open(path, 'rb') as file:
             json_bytes = file.read()
-            data: dict = loads(json_bytes)
-            for key, val in data.items():
-                setattr(self, key, val)
+            self.from_json(json_bytes)
     
     def to_json(self):
         data = {

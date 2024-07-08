@@ -5,7 +5,7 @@ if __name__ != '__main__':
 import numpy as np
 import pandas as pd
 import time
-import cognixlib.api.data as cl
+import cognixlib.scripting.data as cl
 t0 = time.perf_counter()
 data = np.array([[1, 2, 3],
                  [4, 5, 6],

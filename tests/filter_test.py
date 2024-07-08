@@ -33,8 +33,6 @@ matter since after the transient effects the filtering is identical.
 if __name__ != '__main__':
     exit()
     
-import mne
-from FIRconv import FIRfilter
 from scipy.signal import oaconvolve, firwin, minimum_phase, convolve, filtfilt, lfilter
 from scipy.fft import fft, fftfreq
 from mne.filter import create_filter, _overlap_add_filter

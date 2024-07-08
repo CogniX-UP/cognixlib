@@ -355,9 +355,9 @@ class FIROnlineApplier(FIRApplier):
         self._applier = FIRfilter(method, block_size, self._h_apply, normalize=False)
         
         # initial buffer
-        self._data_buffer = np.zeros((3 * block_size, channels))
+        self._data_buffer = np.zeros((4 * block_size, channels), dtype=np.float64)
         # in case this is a Stream Signal
-        self._times_buffer = np.zeros(3 * block_size)
+        self._times_buffer = np.zeros(4 * block_size, dtype=np.float64)
         self._curr_size = 0
     
     @property
@@ -374,14 +374,27 @@ class FIROnlineApplier(FIRApplier):
         data = signal.data if isinstance(signal, Signal) else signal
         rows, cols = data.shape
         
-        if self._curr_size <= len(self._data_buffer):
+        b_length = len(self._data_buffer)
+        if self._curr_size + rows <= b_length:
             self._data_buffer[self._curr_size: self._curr_size + rows] = data
             if is_time_signal:
                 self._times_buffer[self._curr_size: self._curr_size + rows] = signal.timestamps
         else:
-            self._data_buffer = np.append(self._data_buffer, data, 0)
+            extra = self._curr_size + rows - b_length
+            _, cols = self._data_buffer.shape
+            c = self._curr_size
+            
+            new_buff = np.zeros((b_length + extra, cols), dtype=np.float64)
+            new_buff[0:c, :] = self._data_buffer[0:c]
+            new_buff[c:, :] = data
+            self._data_buffer = new_buff
+            
             if is_time_signal:
-                self._times_buffer = np.append(self._times_buffer, signal.timestamps, 0)
+                new_buff = np.zeros(b_length + extra, dtype=np.float64)
+                new_buff[0:c] = self._times_buffer[0:c]
+                new_buff[c:] = signal.timestamps
+                self._times_buffer = new_buff
+                
         self._curr_size += rows
         
         if self._curr_size < self._block_size:
@@ -407,6 +420,7 @@ class FIROnlineApplier(FIRApplier):
         
         if is_time_signal:
             res_time = self._times_buffer[0:ret_block].copy()
+            self._times_buffer[0:left_size] = self._times_buffer[ret_block:self._curr_size]
         
         self._curr_size -= ret_block
         
