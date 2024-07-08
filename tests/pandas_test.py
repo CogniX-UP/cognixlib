@@ -39,7 +39,7 @@ print(f'Feature Creation: {t3-t2}')
 
 check = np.array_equal(
     df['A'],
-    f.ldm['A'].data
+    f['A']
 )
 print(check)
 print(df.values.flags['C_CONTIGUOUS'])

@@ -16,8 +16,6 @@ data = np.array(
 f = LabeledSignal(labels=labels, data=data, signal_info=None)
 s = f[:, 1]
 x = f[:, 1:2]
-print(s, type(s))
-print(x, type(x), x.labels)
 
 f_new = f[f > -1]
 # this won't filter the way we think
@@ -31,6 +29,7 @@ rows = np.any(f['x1'] > 0, axis=1)
 f_new = f[rows, :]
 print(f_new, f_new.labels)
 f_new = f[f[:, 0] > 0, :]
+f_new = f[f['x1'].data.T.flatten() > 0, :]
 print(f_new, f_new.labels)
 
 # Filter by a row
