@@ -12,6 +12,7 @@ from types import MappingProxyType
 __str_to_np = {
     'float32': np.dtype(np.float32),
     'float64': np.dtype(np.float64),
+    'double64': np.dtype(np.float64),
     'int8': np.dtype(np.int8),
     'int16': np.dtype(np.int16),
     'int32': np.dtype(np.int32),
@@ -47,6 +48,7 @@ lsl_to_np = MappingProxyType(__lsl_to_np)
 
 ___str_to_lsl = {
     'float32': pylsl.cf_float32,
+    'double64': pylsl.cf_double64,
     'float64': pylsl.cf_double64,
     'int8': pylsl.cf_int8,
     'int16': pylsl.cf_int16,
@@ -59,7 +61,7 @@ str_to_lsl = MappingProxyType(___str_to_lsl)
 
 __lsl_to_str = {
     pylsl.cf_float32: 'float32',
-    pylsl.cf_double64: 'float64',
+    pylsl.cf_double64: 'double64',
     pylsl.cf_int8: 'int8',
     pylsl.cf_int16: 'int16',
     pylsl.cf_int32: 'int32',

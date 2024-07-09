@@ -101,11 +101,11 @@ class XDFWriterNode(Node):
     def update_event(self,inp=-1):
           
         if inp not in self.write_header:
-
+            
             signal: StreamSignal = self.input(inp)
-            if not signal:
+            if signal is None:
                 return False
-            if 'Marker' in signal.info.signal_type and (signal.info.nominal_srate != IRREGULAR_RATE or signal.info.data_format != cf_string):
+            if 'Marker' in signal.info.signal_type and (signal.info.nominal_srate != IRREGULAR_RATE or signal.info.data_format != lsl_to_str[cf_string]):
                 return 
             
             self.inlets[inp] = {
@@ -117,6 +117,7 @@ class XDFWriterNode(Node):
                 'time_created':self.start_time,
                 'channels':signal.labels.tolist() # TODO should this be a list according to XDF and LSL standards?
             }
+
             self.timestamps[inp] = []
             self.samples_count[inp] = 0
             self.xdfile.write_header(inp, self.inlets[inp])
@@ -124,7 +125,7 @@ class XDFWriterNode(Node):
             self.write_header.add(inp)
         
         signal: StreamSignal = self.input(inp)
-        if not signal:
+        if signal is None:
             return
         
         samples = np.array(signal.data)
@@ -215,8 +216,7 @@ class XDFImporterNode(Node):
                 
                 if isinstance(stream_data, Sequence):
                     stream_data = np.array(stream_data)
-                else:
-                    print(stream_data.dtype)    
+                    
                 self.stream_collection[stream_name] = StreamSignal(
                     timestamps=stream_timestamps,
                     data=stream_data,

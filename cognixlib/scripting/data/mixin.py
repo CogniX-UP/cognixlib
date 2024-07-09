@@ -69,7 +69,7 @@ class StreamConfig:
     
     @property
     def data_format(self):
-        """The format of data (i.e. float32 or float64)"""
+        """The format of data (i.e. float32 or double64)"""
         return self._data_format
     
     @property
