@@ -13,6 +13,7 @@ from sklearn.model_selection import (
 )
 from ...data.signals import FeatureSignal
 from .._core import Validator, BasePredictor
+from .classification import SciKitClassifier
 from collections.abc import Sequence
 from typing import Any
 
@@ -35,6 +36,10 @@ class ScikitValidator(Validator):
     ) -> tuple[Mapping, Mapping]:
         
         model = predictor if predictor else self.predictor
+        # TODO change this to a general SciKitPredictor
+        if isinstance(model, SciKitClassifier):
+            model = model.model
+            
         scoring = metrics if metrics else self.metrics
         
         X = signal.data
@@ -46,6 +51,7 @@ class ScikitValidator(Validator):
             for _ in range(start_idx,end_idx):
                 y.append(class_label)
 
+        
         cross_res: Mapping[str, Any] = cross_validate(model, X, y, cv=self.validator, scoring=scoring)
         
         def filter(name: str):

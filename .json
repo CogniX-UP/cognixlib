@@ -1,1 +1,1549 @@
-{"_m":2,"_n_features":4,"_w_per_band":null,"_feature_items":null}
+{
+    "general info": {
+        "type": "Cognix project file",
+        "cognix version": "1.0"
+    },
+    "required packages": [],
+    "GID": 0,
+    "version": "0.9",
+    "flows": {
+        "calibration": {
+            "GID": 3,
+            "algorithm mode": 0,
+            "nodes": [
+                {
+                    "GID": 4,
+                    "version": "0.1",
+                    "identifier": "cognix_library.file.XDFImporterNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 6,
+                            "port_type": "data",
+                            "label": "streams",
+                            "allowed_data": "gASVhQAAAAAAAACMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAdNYXBwaW5nlJOUjAhidWlsdGluc5SMA3N0cpSTlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SGlIaUUpQu",
+                            "allowed_data_str": "collections.abc.Mapping[str, cognixlib.scripting.data.signals.StreamSignal]"
+                        },
+                        {
+                            "GID": 7,
+                            "port_type": "data",
+                            "label": "EEGstream1",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        },
+                        {
+                            "GID": 8,
+                            "port_type": "data",
+                            "label": "unity markers",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "directory": "C:/Users/salok/Desktop/test models",
+                        "default_file_name": "calib data",
+                        "varname": "model",
+                        "lowercase_labels": true,
+                        "ports": {
+                            "$#t": "traits config",
+                            "content": {
+                                "ports": {
+                                    "$#t": "list",
+                                    "content": [
+                                        "EEGstream1",
+                                        "unity markers"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "pos x": 401.7591446755973,
+                    "pos y": 772.7007686745579,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "XDF Import",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 9,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.FIRDesignNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 11,
+                            "port_type": "data",
+                            "label": "h",
+                            "allowed_data": "gASVFQAAAAAAAACMBW51bXB5lIwHbmRhcnJheZSTlC4=",
+                            "allowed_data_str": "<class 'numpy.ndarray'>"
+                        }
+                    ],
+                    "config": {
+                        "design_method": "mne",
+                        "fs": 2048,
+                        "f_type": "pass",
+                        "window": "hamming",
+                        "cutoff": {
+                            "$#t": "list",
+                            "content": [
+                                8,
+                                30
+                            ]
+                        },
+                        "length": 100,
+                        "trans_bandwidth": {
+                            "$#t": "tuple",
+                            "content": [
+                                8,
+                                30
+                            ]
+                        },
+                        "min_phase": false
+                    },
+                    "pos x": 527.8289867897258,
+                    "pos y": 604.7037381105692,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FIR Design",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 12,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.FIRApplierNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 16,
+                            "port_type": "data",
+                            "label": "h",
+                            "allowed_data": "gASVFQAAAAAAAACMBW51bXB5lIwHbmRhcnJheZSTlC4=",
+                            "allowed_data_str": "<class 'numpy.ndarray'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 17,
+                            "port_type": "data",
+                            "label": "sig",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 18,
+                            "port_type": "data",
+                            "label": "f",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "apply_mode": "offline",
+                        "phase": "pass",
+                        "offline_method": "overlap-add",
+                        "online_method": "overlap-add",
+                        "block_size": 512
+                    },
+                    "pos x": 774.1350801703355,
+                    "pos y": 616.2839732507349,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FIR Applier",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 19,
+                    "version": "0.1",
+                    "identifier": "cognix_library.feature_extration.FBCSPNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 23,
+                            "port_type": "data",
+                            "label": "spt trials",
+                            "allowed_data": "gASVpwAAAAAAAACMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAdNYXBwaW5nlJOUjAhidWlsdGluc5SMA3N0cpSTlGgCaAOMCFNlcXVlbmNllJOUaAJoCowgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjA1MYWJlbGVkU2lnbmFslJOUhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Mapping[str, collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 24,
+                            "port_type": "data",
+                            "label": "fbcsp",
+                            "allowed_data": "gASVNwAAAAAAAACMImNvZ25peGxpYi5zY3JpcHRpbmcuZmVhdHVyZXMuZmJjc3CUjAxGQkNTUF9CaW5hcnmUk5Qu",
+                            "allowed_data_str": "<class 'cognixlib.scripting.features.fbcsp.FBCSP_Binary'>"
+                        }
+                    ],
+                    "config": {
+                        "mode": "spatial filters",
+                        "m": 2,
+                        "n_features": 4,
+                        "file_mode": "none",
+                        "path": "C:/Users/salok/Desktop/test models",
+                        "name": ""
+                    },
+                    "pos x": 1476.974832600054,
+                    "pos y": 672.7882897553068,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FBCSP",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 25,
+                    "version": "0.1",
+                    "identifier": "cognix_library.feature_extration.FBCSPTrialsNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 27,
+                            "port_type": "data",
+                            "label": "left",
+                            "allowed_data": "gASVvAAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwFdHlwZXOUjAxHZW5lcmljQWxpYXOUk5SMD2NvbGxlY3Rpb25zLmFiY5SMCFNlcXVlbmNllJOUjCBjb2duaXhsaWIuc2NyaXB0aW5nLmRhdGEuc2lnbmFsc5SMDUxhYmVsZWRTaWduYWyUk5SFlIaUUpRoCGgLaAhoC2gOhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal] | collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 28,
+                            "port_type": "data",
+                            "label": "right",
+                            "allowed_data": "gASVvAAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwFdHlwZXOUjAxHZW5lcmljQWxpYXOUk5SMD2NvbGxlY3Rpb25zLmFiY5SMCFNlcXVlbmNllJOUjCBjb2duaXhsaWIuc2NyaXB0aW5nLmRhdGEuc2lnbmFsc5SMDUxhYmVsZWRTaWduYWyUk5SFlIaUUpRoCGgLaAhoC2gOhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal] | collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 29,
+                            "port_type": "data",
+                            "label": "cls",
+                            "allowed_data": "gASVpwAAAAAAAACMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAdNYXBwaW5nlJOUjAhidWlsdGluc5SMA3N0cpSTlGgCaAOMCFNlcXVlbmNllJOUaAJoCowgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjA1MYWJlbGVkU2lnbmFslJOUhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Mapping[str, collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]]"
+                        }
+                    ],
+                    "config": {
+                        "inputs": {
+                            "$#t": "traits config",
+                            "content": {
+                                "ports": {
+                                    "$#t": "list",
+                                    "content": [
+                                        "left",
+                                        "right"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "pos x": 1245.1046071921783,
+                    "pos y": 671.432323524851,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FBCSP Trials",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 30,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.SegmentationNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 34,
+                            "port_type": "data",
+                            "label": "data",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 35,
+                            "port_type": "data",
+                            "label": "markers",
+                            "allowed_data": "gASV2AAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgLjAhidWlsdGluc5SMBXR1cGxllJOUaA+MA3N0cpSTlGgPjAVmbG9hdJSTlIaUhpRSlIWUhpRSlIaUhpRSlC4=",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[tuple[str, float]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 36,
+                            "port_type": "data",
+                            "label": "og_data",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        },
+                        {
+                            "GID": 37,
+                            "port_type": "data",
+                            "label": "left_data",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]"
+                        },
+                        {
+                            "GID": 38,
+                            "port_type": "data",
+                            "label": "right_data",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]"
+                        }
+                    ],
+                    "config": {
+                        "offset": {
+                            "$#t": "tuple",
+                            "content": [
+                                0.5,
+                                4.5
+                            ]
+                        },
+                        "mode": "input",
+                        "buffer_duration": 10.0,
+                        "timestamp_buffer": 1000,
+                        "debug": false,
+                        "markers": {
+                            "$#t": "traits config",
+                            "content": {
+                                "ports": {
+                                    "$#t": "list",
+                                    "content": [
+                                        "left",
+                                        "right"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "pos x": 994.2508545579271,
+                    "pos y": 656.5166949898417,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Segment",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 39,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.WindowNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 40,
+                            "port_type": "data",
+                            "label": "left",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 41,
+                            "port_type": "data",
+                            "label": "right",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 42,
+                            "port_type": "data",
+                            "label": "left_wnds",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]"
+                        },
+                        {
+                            "GID": 43,
+                            "port_type": "data",
+                            "label": "right_wnds",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]"
+                        }
+                    ],
+                    "config": {
+                        "mode": "input",
+                        "window_length": 1.0,
+                        "error_margin": 0.0,
+                        "dts_error_scale": 1.5,
+                        "extra_buffer": 0.5,
+                        "overlap_mode": "step",
+                        "overlap_step": 0.0625,
+                        "overlap_percent": 0.0,
+                        "debug": false,
+                        "ports": {
+                            "$#t": "traits config",
+                            "content": {
+                                "ports": {
+                                    "$#t": "list",
+                                    "content": [
+                                        "left",
+                                        "right"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "pos x": 1219.341248813525,
+                    "pos y": 836.8602036404113,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Window",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 44,
+                    "version": "0.1",
+                    "identifier": "cognix_library.feature_extration.FBCSPNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 48,
+                            "port_type": "data",
+                            "label": "fbcsp",
+                            "allowed_data": "gASVNwAAAAAAAACMImNvZ25peGxpYi5zY3JpcHRpbmcuZmVhdHVyZXMuZmJjc3CUjAxGQkNTUF9CaW5hcnmUk5Qu",
+                            "allowed_data_str": "<class 'cognixlib.scripting.features.fbcsp.FBCSP_Binary'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 49,
+                            "port_type": "data",
+                            "label": "feat trials",
+                            "allowed_data": "gASVpwAAAAAAAACMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAdNYXBwaW5nlJOUjAhidWlsdGluc5SMA3N0cpSTlGgCaAOMCFNlcXVlbmNllJOUaAJoCowgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjA1MYWJlbGVkU2lnbmFslJOUhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Mapping[str, collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 50,
+                            "port_type": "data",
+                            "label": "fbcsp",
+                            "allowed_data": "gASVNwAAAAAAAACMImNvZ25peGxpYi5zY3JpcHRpbmcuZmVhdHVyZXMuZmJjc3CUjAxGQkNTUF9CaW5hcnmUk5Qu",
+                            "allowed_data_str": "<class 'cognixlib.scripting.features.fbcsp.FBCSP_Binary'>"
+                        },
+                        {
+                            "GID": 51,
+                            "port_type": "data",
+                            "label": "train feat",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNRmVhdHVyZVNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.FeatureSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "mode": "select features",
+                        "m": 2,
+                        "n_features": 4,
+                        "file_mode": "save",
+                        "path": "C:/Users/salok/Desktop/test models",
+                        "name": "fbcsp"
+                    },
+                    "pos x": 1769.8635383784226,
+                    "pos y": 691.7718169816822,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FBCSP",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 52,
+                    "version": "0.1",
+                    "identifier": "cognix_library.feature_extration.FBCSPTrialsNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 54,
+                            "port_type": "data",
+                            "label": "left",
+                            "allowed_data": "gASVvAAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwFdHlwZXOUjAxHZW5lcmljQWxpYXOUk5SMD2NvbGxlY3Rpb25zLmFiY5SMCFNlcXVlbmNllJOUjCBjb2duaXhsaWIuc2NyaXB0aW5nLmRhdGEuc2lnbmFsc5SMDUxhYmVsZWRTaWduYWyUk5SFlIaUUpRoCGgLaAhoC2gOhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal] | collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 55,
+                            "port_type": "data",
+                            "label": "right",
+                            "allowed_data": "gASVvAAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwFdHlwZXOUjAxHZW5lcmljQWxpYXOUk5SMD2NvbGxlY3Rpb25zLmFiY5SMCFNlcXVlbmNllJOUjCBjb2duaXhsaWIuc2NyaXB0aW5nLmRhdGEuc2lnbmFsc5SMDUxhYmVsZWRTaWduYWyUk5SFlIaUUpRoCGgLaAhoC2gOhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal] | collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 56,
+                            "port_type": "data",
+                            "label": "cls",
+                            "allowed_data": "gASVpwAAAAAAAACMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAdNYXBwaW5nlJOUjAhidWlsdGluc5SMA3N0cpSTlGgCaAOMCFNlcXVlbmNllJOUaAJoCowgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjA1MYWJlbGVkU2lnbmFslJOUhZSGlFKUhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "collections.abc.Mapping[str, collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.LabeledSignal]]]"
+                        }
+                    ],
+                    "config": {
+                        "inputs": {
+                            "$#t": "traits config",
+                            "content": {
+                                "ports": {
+                                    "$#t": "list",
+                                    "content": [
+                                        "left",
+                                        "right"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "pos x": 1462.059204065044,
+                    "pos y": 831.4363387185895,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FBCSP Trials",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 57,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.LDANode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 59,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVTQAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjBBTY2lLaXRDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.SciKitClassifier'>"
+                        }
+                    ],
+                    "config": {
+                        "solver": "lsqr",
+                        "shrinkage": "auto",
+                        "shrinkage_value": 0.5
+                    },
+                    "pos x": 1828.6223253362973,
+                    "pos y": 854.9182897027002,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "LDA Classifier",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 60,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.TrainNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 65,
+                            "port_type": "data",
+                            "label": "data",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNRmVhdHVyZVNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.FeatureSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 66,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVTQAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjBBTY2lLaXRDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.SciKitClassifier'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 67,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVTQAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjBBTY2lLaXRDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.SciKitClassifier'>"
+                        },
+                        {
+                            "GID": 68,
+                            "port_type": "data",
+                            "label": "train metrics",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNTGFiZWxlZFNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.LabeledSignal'>"
+                        }
+                    ],
+                    "config": null,
+                    "pos x": 2169.0125262300307,
+                    "pos y": 438.66137459250956,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Train Classifier",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 69,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.SaveModel",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 71,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVTQAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjBBTY2lLaXRDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.SciKitClassifier'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [],
+                    "config": {
+                        "directory": "C:/Users/salok/Desktop/test models",
+                        "default_filename": "model",
+                        "varname": "model"
+                    },
+                    "pos x": 2418.327561720055,
+                    "pos y": 362.55258735175164,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Save Model",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 72,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.StreamSignalSelectionNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 75,
+                            "port_type": "data",
+                            "label": "in",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 76,
+                            "port_type": "data",
+                            "label": "out",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "force_lowercase": true,
+                        "labels": {
+                            "$#t": "list",
+                            "content": [
+                                "c3",
+                                "c4",
+                                "f3",
+                                "f4",
+                                "fz",
+                                "fc5",
+                                "fc1",
+                                "fc2",
+                                "fc6",
+                                "cz",
+                                "cp5",
+                                "cp6",
+                                "cp1",
+                                "cp2",
+                                "p3",
+                                "pz",
+                                "p4"
+                            ]
+                        }
+                    },
+                    "pos x": 618.191709726322,
+                    "pos y": 710.378192755686,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Select Channels",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 77,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.SVMNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 79,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVSgAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjA1TVk1DbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.SVMClassifier'>"
+                        }
+                    ],
+                    "config": {
+                        "C": 1.0,
+                        "degree": 3,
+                        "kernel": "rbf",
+                        "gamma": "scale",
+                        "gamma_value": 0.0
+                    },
+                    "pos x": 1827.3302915244242,
+                    "pos y": 939.6973007144362,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "SVM Classifier",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 80,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.RandomForestNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 82,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVSQAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjAxSRkNsYXNzaWZpZXKUk5Qu",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.RFClassifier'>"
+                        }
+                    ],
+                    "config": {
+                        "n_estimators": 100,
+                        "criterion": "gini",
+                        "max_depth": "auto",
+                        "max_depth_value": 0,
+                        "min_samples_split": 2,
+                        "min_samples_leaf": 1,
+                        "max_features": "sqrt",
+                        "max_features_val": 0.0,
+                        "max_leaf_nodes": "auto",
+                        "max_leaf_nodes_val": 0
+                    },
+                    "pos x": 1860.3466831711478,
+                    "pos y": 1024.7780022656082,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Random Forest Classifier",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 83,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.KFoldNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 85,
+                            "port_type": "data",
+                            "label": "v",
+                            "allowed_data": "gASVRwAAAAAAAACMMGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQudmFsaWRhdGlvbpSMDktGb2xkVmFsaWRhdG9ylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.validation.KFoldValidator'>"
+                        }
+                    ],
+                    "config": {
+                        "kfold": 5,
+                        "shuffle": true,
+                        "random_state": "auto",
+                        "random_state_val": 0
+                    },
+                    "pos x": 1945.4273847223196,
+                    "pos y": 594.2950496410219,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "K-Fold",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 86,
+                    "version": "v0.2",
+                    "identifier": "cognix_library.util.ResultNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 88,
+                            "port_type": "data",
+                            "label": "",
+                            "allowed_data": null,
+                            "allowed_data_str": null,
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [],
+                    "config": null,
+                    "pos x": 2443.2129818575345,
+                    "pos y": 768.2660363949107,
+                    "main widget data": "gAR9lC4=",
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "result",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 89,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.ClassifierValidation",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 94,
+                            "port_type": "data",
+                            "label": "v",
+                            "allowed_data": "gASVNgAAAAAAAACMJGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5fY29yZZSMCVZhbGlkYXRvcpSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction._core.Validator'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 95,
+                            "port_type": "data",
+                            "label": "feat",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNRmVhdHVyZVNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.FeatureSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 96,
+                            "port_type": "data",
+                            "label": "m0",
+                            "allowed_data": "gASVOwAAAAAAAACMJGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5fY29yZZSMDkJhc2VDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction._core.BaseClassifier'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 97,
+                            "port_type": "data",
+                            "label": "m1",
+                            "allowed_data": "gASVOwAAAAAAAACMJGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5fY29yZZSMDkJhc2VDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction._core.BaseClassifier'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 98,
+                            "port_type": "data",
+                            "label": "m2",
+                            "allowed_data": "gASVOwAAAAAAAACMJGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5fY29yZZSMDkJhc2VDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction._core.BaseClassifier'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 99,
+                            "port_type": "data",
+                            "label": "m0",
+                            "allowed_data": null,
+                            "allowed_data_str": null
+                        },
+                        {
+                            "GID": 100,
+                            "port_type": "data",
+                            "label": "m1",
+                            "allowed_data": null,
+                            "allowed_data_str": null
+                        },
+                        {
+                            "GID": 101,
+                            "port_type": "data",
+                            "label": "m2",
+                            "allowed_data": null,
+                            "allowed_data_str": null
+                        }
+                    ],
+                    "config": {
+                        "metrics": {
+                            "$#t": "list",
+                            "content": [
+                                "accuracy",
+                                "f1_micro",
+                                "f1_micro"
+                            ]
+                        },
+                        "num_models": 3
+                    },
+                    "pos x": 2180.1868210141356,
+                    "pos y": 788.3647281773665,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Classifier Validation",
+                    "inspector widget": {}
+                }
+            ],
+            "connections": [
+                {
+                    "parent node index": 0,
+                    "output port index": 1,
+                    "connected node": 12,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 0,
+                    "output port index": 2,
+                    "connected node": 5,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 1,
+                    "output port index": 0,
+                    "connected node": 2,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 2,
+                    "output port index": 0,
+                    "connected node": 5,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 3,
+                    "output port index": 0,
+                    "connected node": 7,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 4,
+                    "output port index": 0,
+                    "connected node": 3,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 5,
+                    "output port index": 1,
+                    "connected node": 4,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 5,
+                    "output port index": 1,
+                    "connected node": 6,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 5,
+                    "output port index": 2,
+                    "connected node": 4,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 5,
+                    "output port index": 2,
+                    "connected node": 6,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 6,
+                    "output port index": 0,
+                    "connected node": 8,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 6,
+                    "output port index": 1,
+                    "connected node": 8,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 7,
+                    "output port index": 1,
+                    "connected node": 17,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 8,
+                    "output port index": 0,
+                    "connected node": 7,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 9,
+                    "output port index": 0,
+                    "connected node": 17,
+                    "connected input port index": 2
+                },
+                {
+                    "parent node index": 10,
+                    "output port index": 0,
+                    "connected node": 11,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 12,
+                    "output port index": 0,
+                    "connected node": 2,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 13,
+                    "output port index": 0,
+                    "connected node": 17,
+                    "connected input port index": 3
+                },
+                {
+                    "parent node index": 14,
+                    "output port index": 0,
+                    "connected node": 17,
+                    "connected input port index": 4
+                },
+                {
+                    "parent node index": 15,
+                    "output port index": 0,
+                    "connected node": 17,
+                    "connected input port index": 0
+                }
+            ],
+            "flow view": {
+                "drawings": [],
+                "view size": [
+                    10000.0,
+                    7000.0
+                ]
+            }
+        },
+        "deploy": {
+            "GID": 102,
+            "algorithm mode": 1,
+            "nodes": [
+                {
+                    "GID": 103,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.StreamSignalSelectionNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 106,
+                            "port_type": "data",
+                            "label": "in",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 107,
+                            "port_type": "data",
+                            "label": "out",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "force_lowercase": true,
+                        "labels": {
+                            "$#t": "list",
+                            "content": [
+                                "c3",
+                                "c4",
+                                "f3",
+                                "f4",
+                                "fz",
+                                "fc5",
+                                "fc1",
+                                "fc2",
+                                "fc6",
+                                "cz",
+                                "cp5",
+                                "cp6",
+                                "cp1",
+                                "cp2",
+                                "p3",
+                                "pz",
+                                "p4"
+                            ]
+                        }
+                    },
+                    "pos x": 743.0640595439363,
+                    "pos y": 940.7916094959905,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Select Channels",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 108,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.FIRDesignNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 110,
+                            "port_type": "data",
+                            "label": "h",
+                            "allowed_data": "gASVFQAAAAAAAACMBW51bXB5lIwHbmRhcnJheZSTlC4=",
+                            "allowed_data_str": "<class 'numpy.ndarray'>"
+                        }
+                    ],
+                    "config": {
+                        "design_method": "mne",
+                        "fs": 2048,
+                        "f_type": "pass",
+                        "window": "hamming",
+                        "cutoff": {
+                            "$#t": "list",
+                            "content": [
+                                8,
+                                30
+                            ]
+                        },
+                        "length": 100,
+                        "trans_bandwidth": {
+                            "$#t": "tuple",
+                            "content": [
+                                8,
+                                30
+                            ]
+                        },
+                        "min_phase": false
+                    },
+                    "pos x": 744.0640595439363,
+                    "pos y": 823.7916094959905,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FIR Design",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 111,
+                    "version": "0.1",
+                    "identifier": "cognix_library.stream.LSLInputNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 113,
+                            "port_type": "data",
+                            "label": "data",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "stream_name": "EEGstream1",
+                        "stream_type": "stream_type",
+                        "search_action": "name",
+                        "define_buffer": true,
+                        "buffer_size": 3276,
+                        "lowercase_labels": true,
+                        "invert": false,
+                        "debug": false,
+                        "processing_flag_mode": {
+                            "$#t": "list",
+                            "content": [
+                                1,
+                                4,
+                                2
+                            ]
+                        }
+                    },
+                    "pos x": 492.0640595439363,
+                    "pos y": 1003.7916094959905,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "LSL Input",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 114,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.FIRApplierNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 118,
+                            "port_type": "data",
+                            "label": "h",
+                            "allowed_data": "gASVFQAAAAAAAACMBW51bXB5lIwHbmRhcnJheZSTlC4=",
+                            "allowed_data_str": "<class 'numpy.ndarray'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 119,
+                            "port_type": "data",
+                            "label": "sig",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 120,
+                            "port_type": "data",
+                            "label": "f",
+                            "allowed_data": "gASVNQAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwMU3RyZWFtU2lnbmFslJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.StreamSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "apply_mode": "online",
+                        "phase": "pass",
+                        "offline_method": "overlap-add",
+                        "online_method": "overlap-save",
+                        "block_size": 256
+                    },
+                    "pos x": 1011.0640595439363,
+                    "pos y": 894.7916094959905,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FIR Applier",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 121,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.LoadModel",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "GID": 123,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVTQAAAAAAAACMNGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5zY2lraXQuY2xhc3NpZmljYXRpb26UjBBTY2lLaXRDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction.scikit.classification.SciKitClassifier'>"
+                        }
+                    ],
+                    "config": {
+                        "directory": "C:/Users/salok/Desktop/test models",
+                        "default": "model",
+                        "varname": "model"
+                    },
+                    "pos x": 1441.415662693651,
+                    "pos y": 1011.99799550897,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Load Model",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 124,
+                    "version": "0.1",
+                    "identifier": "cognix_library.feature_extration.FBCSPNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 128,
+                            "port_type": "data",
+                            "label": "trials",
+                            "allowed_data": "gASVtwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAZTaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUaAtoDmgLaA5oCIWUhpRSlIWUhpRSlIeUhpRSlC4=",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.Signal | collections.abc.Sequence[cognixlib.scripting.data.signals.Signal] | collections.abc.Sequence[collections.abc.Sequence[cognixlib.scripting.data.signals.Signal]]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 129,
+                            "port_type": "data",
+                            "label": "fbcsp",
+                            "allowed_data": "gASVNwAAAAAAAACMImNvZ25peGxpYi5zY3JpcHRpbmcuZmVhdHVyZXMuZmJjc3CUjAxGQkNTUF9CaW5hcnmUk5Qu",
+                            "allowed_data_str": "<class 'cognixlib.scripting.features.fbcsp.FBCSP_Binary'>"
+                        },
+                        {
+                            "GID": 130,
+                            "port_type": "data",
+                            "label": "features",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNTGFiZWxlZFNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.LabeledSignal'>"
+                        }
+                    ],
+                    "config": {
+                        "mode": "extract features",
+                        "m": 2,
+                        "n_features": 4,
+                        "file_mode": "load",
+                        "path": "C:/Users/salok/Desktop/test models",
+                        "name": "fbcsp"
+                    },
+                    "pos x": 1432.8616552216845,
+                    "pos y": 876.726980533881,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "FBCSP",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 131,
+                    "version": "0.1",
+                    "identifier": "cognix_library.prediction.ClassifyNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 135,
+                            "port_type": "data",
+                            "label": "data",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNTGFiZWxlZFNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.LabeledSignal'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        },
+                        {
+                            "GID": 136,
+                            "port_type": "data",
+                            "label": "model",
+                            "allowed_data": "gASVOwAAAAAAAACMJGNvZ25peGxpYi5zY3JpcHRpbmcucHJlZGljdGlvbi5fY29yZZSMDkJhc2VDbGFzc2lmaWVylJOULg==",
+                            "allowed_data_str": "<class 'cognixlib.scripting.prediction._core.BaseClassifier'>",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 137,
+                            "port_type": "data",
+                            "label": "predictions",
+                            "allowed_data": "gASVNgAAAAAAAACMIGNvZ25peGxpYi5zY3JpcHRpbmcuZGF0YS5zaWduYWxzlIwNTGFiZWxlZFNpZ25hbJSTlC4=",
+                            "allowed_data_str": "<class 'cognixlib.scripting.data.signals.LabeledSignal'>"
+                        }
+                    ],
+                    "config": null,
+                    "pos x": 1680.1880897796664,
+                    "pos y": 918.7034599859735,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Classify",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 138,
+                    "version": "v0.2",
+                    "identifier": "cognix_library.util.ResultNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 140,
+                            "port_type": "data",
+                            "label": "",
+                            "allowed_data": null,
+                            "allowed_data_str": null,
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [],
+                    "config": null,
+                    "pos x": 1964.7305542255144,
+                    "pos y": 912.4082727194725,
+                    "main widget data": "gAR9lC4=",
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "result",
+                    "inspector widget": {}
+                },
+                {
+                    "GID": 141,
+                    "version": "0.1",
+                    "identifier": "cognix_library.preprocessing.WindowNode",
+                    "state data": "gAR9lC4=",
+                    "additional data": {},
+                    "inputs": [
+                        {
+                            "GID": 142,
+                            "port_type": "data",
+                            "label": "in",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]",
+                            "default": "gAROLg==",
+                            "has widget": false
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "GID": 143,
+                            "port_type": "data",
+                            "label": "in_wnds",
+                            "allowed_data": "gASVpwAAAAAAAACMCl9mdW5jdG9vbHOUjAZyZWR1Y2WUk5SMCV9vcGVyYXRvcpSMA29yX5STlIwgY29nbml4bGliLnNjcmlwdGluZy5kYXRhLnNpZ25hbHOUjAxTdHJlYW1TaWduYWyUk5SMBXR5cGVzlIwMR2VuZXJpY0FsaWFzlJOUjA9jb2xsZWN0aW9ucy5hYmOUjAhTZXF1ZW5jZZSTlGgIhZSGlFKUhpSGlFKULg==",
+                            "allowed_data_str": "cognixlib.scripting.data.signals.StreamSignal | collections.abc.Sequence[cognixlib.scripting.data.signals.StreamSignal]"
+                        }
+                    ],
+                    "config": {
+                        "mode": "buffer",
+                        "window_length": 1.0,
+                        "error_margin": 0.0,
+                        "dts_error_scale": 1.5,
+                        "extra_buffer": 0.5,
+                        "overlap_mode": "step",
+                        "overlap_step": 0.0625,
+                        "overlap_percent": 0.0,
+                        "debug": false,
+                        "ports": {
+                            "$#t": "traits config",
+                            "content": {
+                                "ports": {
+                                    "$#t": "list",
+                                    "content": [
+                                        "in"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "pos x": 1213.1728136511992,
+                    "pos y": 893.7410728090945,
+                    "unconnected ports hidden": false,
+                    "collapsed": false,
+                    "display title": "Window",
+                    "inspector widget": {}
+                }
+            ],
+            "connections": [
+                {
+                    "parent node index": 0,
+                    "output port index": 0,
+                    "connected node": 3,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 1,
+                    "output port index": 0,
+                    "connected node": 3,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 2,
+                    "output port index": 0,
+                    "connected node": 0,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 3,
+                    "output port index": 0,
+                    "connected node": 8,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 4,
+                    "output port index": 0,
+                    "connected node": 6,
+                    "connected input port index": 1
+                },
+                {
+                    "parent node index": 5,
+                    "output port index": 1,
+                    "connected node": 6,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 6,
+                    "output port index": 0,
+                    "connected node": 7,
+                    "connected input port index": 0
+                },
+                {
+                    "parent node index": 8,
+                    "output port index": 0,
+                    "connected node": 5,
+                    "connected input port index": 0
+                }
+            ],
+            "flow view": {
+                "drawings": [],
+                "view size": [
+                    10000.0,
+                    7000.0
+                ]
+            }
+        }
+    },
+    "addons": {
+        "Variables": {
+            "GID": 1,
+            "version": "1.0",
+            "custom state": {
+                "3": {},
+                "102": {}
+            }
+        },
+        "Logging": {
+            "GID": 2,
+            "version": "1.0",
+            "custom state": {}
+        }
+    },
+    "geometry": "01d9d0cb00030000000000d90000000a000006b400000348000000d900000029000006b40000034800000000000000000780000000d900000029000006b400000348",
+    "state": "000000ff00000000fd00000002000000000000018800000303fc0200000001fc0000001d000003030000015a0100001afa000000010200000002fb000000140066006c006f00770073005f0064006f0063006b0100000000ffffffff0000009a00fffffffb00000014006e006f006400650073005f0064006f0063006b0100000000ffffffff0000013f00ffffff000000030000000000000000fc0100000001fb000000160063006f006e0073006f006c00650044006f0063006b0000000000ffffffff0000005400ffffff000004500000030300000004000000040000000800000008fc00000000",
+    "flow_uis": {
+        "3": {
+            "geometry": "01d9d0cb00030000000000010000000100000432000002ca0000000000000000ffffffffffffffff00000000000000000780000000010000000100000432000002ca",
+            "state": "000000ff00000000fd000000010000000100000160000002cafc0200000001fc00000000000002ca0000011f0000004bfa000000000200000006fb0000001c0069006e00730070006500630074006f0072005f0064006f0063006b0100000000ffffffff0000010400fffffffb000000220075006e0064006f005f0068006900730074006f00720079005f0064006f0063006b0100000000ffffffff0000006a00fffffffb0000001a00730065007400740069006e00670073005f0064006f0063006b0100000000ffffffff0000003000000030fb0000001c007600610072006900610062006c00650073005f0064006f0063006b0100000000ffffffff0000009a00fffffffb00000016006c006f0067006700650072005f0064006f0063006b0100000000ffffffff0000006a00fffffffb000000160073006f0075007200630065005f0064006f0063006b0100000000ffffffff0000009c00ffffff000002ce000002ca00000004000000040000000800000008fc00000000",
+            "view": {
+                "m11": 0.6976466352972869,
+                "m12": 0.0,
+                "m13": 0.0,
+                "m21": 0.0,
+                "m22": 0.6976466352972869,
+                "m23": 0.0,
+                "m31": 0.0,
+                "m32": 0.0,
+                "m33": 1.0,
+                "v_scroll": 1172,
+                "h_scroll": 145
+            }
+        },
+        "102": {
+            "geometry": "01d9d0cb000300000000000100000001000005d6000003a30000000000000000ffffffffffffffff000000000000000007800000000100000001000005d6000003a3",
+            "state": "000000ff00000000fd00000001000000010000016c000003a3fc0200000001fc00000000000003a3000000b50000004bfa000000000200000006fb0000001c0069006e00730070006500630074006f0072005f0064006f0063006b0100000000ffffffff0000002800fffffffb000000220075006e0064006f005f0068006900730074006f00720079005f0064006f0063006b0100000000ffffffff0000006a00fffffffb0000001a00730065007400740069006e00670073005f0064006f0063006b0100000000ffffffff0000003000000030fb0000001c007600610072006900610062006c00650073005f0064006f0063006b0100000000ffffffff0000009a00fffffffb00000016006c006f0067006700650072005f0064006f0063006b0100000000ffffffff0000006a00fffffffb000000160073006f0075007200630065005f0064006f0063006b0100000000ffffffff0000007c00ffffff00000466000003a300000004000000040000000800000008fc00000000",
+            "view": {
+                "m11": 0.6626053751363448,
+                "m12": 0.0,
+                "m13": 0.0,
+                "m21": 0.0,
+                "m22": 0.6626053751363448,
+                "m23": 0.0,
+                "m31": 0.0,
+                "m32": 0.0,
+                "m33": 1.0,
+                "v_scroll": 389,
+                "h_scroll": 170
+            }
+        }
+    }
+}

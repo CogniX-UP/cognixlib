@@ -1,5 +1,5 @@
 from __future__ import annotations
-from cognixcore import Flow, Node, PortConfig
+from cognixcore import Flow, Node, PortConfig, ProgressState
 from cognixcore.config import NodeConfig
 from cognixcore.config.traits import *
 
@@ -15,12 +15,14 @@ from ...scripting.prediction.scikit.classification import (
     SciKitClassifier,
     LogisticRegressionClassifier,
     LDAClassifier,
+    ClassificationMetrics,
 )
 from ...scripting.prediction.scikit.validation import (
     Validator,
     KFoldValidator,
     LeaveOneOutValidator,
     StratifiedKFoldValidator,
+    ShuffleSplitValidator,
 )
 
 class ModelNode(Node):
@@ -40,7 +42,7 @@ class SVMNode(ModelNode):
     class Config(NodeTraitsConfig):
         C : float = CX_Float(1.0)
         degree: int = CX_Int(3)
-        kernel: str = Enum(SVMClassifier.Kernel.RBF, values=SVMClassifier.Kernel)
+        kernel: str = Enum(SVMClassifier.Kernel.RBF, SVMClassifier.Kernel)
         gamma: str = Enum('scale','auto', 'manual')
         gamma_value: float = CX_Float(0.0, visible_when="gamma=='manual'")
 
@@ -98,8 +100,8 @@ class RandomForestNode(ModelNode):
         criterion: str = Enum(RFClassifier.Criterion, desc='the number of trees in the forest')
         max_depth: str = Enum('auto', 'manual')
         max_depth_value: int = CX_Int(0, visible_when="max_depth=='manual'", desc='the maximum depth of the tree')
-        mini_samples_split: int|float = CX_Int(2, desc='the minimum number of samples required to split an internal node')
-        mini_samples_leaf: int|float = CX_Int(1, desc='the minimum number of samples required to be at a leaf node')
+        min_samples_split: int|float = CX_Int(2, desc='the minimum number of samples required to split an internal node')
+        min_samples_leaf: int|float = CX_Int(1, desc='the minimum number of samples required to be at a leaf node')
         max_features: str = Enum('sqrt','log2', 'manual', desc='the number of features to consider when looking for the best split')
         max_features_val: float = CX_Float(0)  
         max_leaf_nodes: str = Enum('auto', 'manual')
@@ -121,8 +123,8 @@ class RandomForestNode(ModelNode):
             n_estimators=self.config.n_estimators,
             criterion=self.config.criterion,
             max_depth=max_depth,
-            mini_samples_split=self.config.mini_samples_split,
-            mini_samples_leaf=self.config.mini_samples_leaf,
+            min_samples_split=self.config.min_samples_split,
+            min_samples_leaf=self.config.min_samples_leaf,
             max_features=max_features,
             max_leaf_nodes=max_leaf_nodes
         )
@@ -221,52 +223,217 @@ class TrainTestSplitNode(Node):
             self.set_output(0, train_signal)
             self.set_output(1, test_signal)
 
-class CrossValidationNode(Node):
 
-    title = 'Cross Validation'
+class ClassificationMetricsNode(Node):
+    
+    title = 'Classification Metrics'
     version = '0.1'
     
     class Config(NodeTraitsConfig):
-        folds: int = CX_Int(5,desc='the number of folds to split data for cross validation')
-        splitter_type:str = Enum('KFold','Stratified','LeaveOneOut','ShuffleSplit')
-        train_test_split:float= CX_Float(0.2,desc='split of data between train and test data')
-
-    init_inputs = [PortConfig(label='data',allowed_data=FeatureSignal),PortConfig(label='model',allowed_data=SciKitClassifier)]
-    init_outputs = [PortConfig(label = 'cv_metrics',allowed_data=LabeledSignal)]
-
-    @property
-    def config(self) -> CrossValidationNode.Config:
-        return self._config
-
-    def init(self):
-
-        self.signal = None
-        self.classifier = None
-        self.load_model = False
-
-        cv_class = next((cls for name, cls in CrossValidation.subclasses.items() if self.config.splitter_type in name), None)
-        self.cv_model: CrossValidation = cv_class(
-            kfold=self.config.folds, 
-            train_test_split = self.config.train_test_split
-        )
-        print(self.cv_model)
-
+        metrics: Sequence[str] = List(Enum(ClassificationMetrics))
+    
+    init_outputs = [
+        PortConfig('metrics', allowed_data=Sequence[str])
+    ]
+    
     def update_event(self, inp=-1):
+        self.set_output(0, self.config.metrics)
+    
 
-        if inp == 0:self.signal = self.input(inp)
-        if inp == 1:self.classifier:SciKitClassifier = self.input(inp)
-
-        if self.signal and self.classifier:
-
-            cv_accuracy,cv_precision,cv_recall,cv_f1 = self.cv_model.calculate_cv_score(model=self.classifier.model,f_signal=self.signal)
+class ValidatorNode(Node):
+    
+    def __init__(self, flow: Flow, config: NodeConfig = None):
+        super().__init__(flow, config)
+        self.validator: Validator = None
+        
+    def update_event(self, inp=-1):
+        self.set_output(0, self.validator)
+    
+class KFoldNode(ValidatorNode):
+    
+    title = 'K-Fold'
+    version = '0.1'
+    
+    class Config(NodeTraitsConfig):
+        kfold: int = CX_Int(5)
+        shuffle: bool = Bool(False)
+        random_state: str = Enum('auto', 'manual')
+        random_state_val: int = CX_Int(0, visible_when="random_state=='manual'")
+        
+    init_outputs =[
+       PortConfig('v', allowed_data=KFoldValidator) 
+    ]
+    
+    @property
+    def config(self) -> Config:
+        return self._config
+    
+    def init(self):
+        
+        random_state = None
+        if self.config.random_state == 'manual':
+            random_state = self.config.random_state_val
             
-            metrics_signal = LabeledSignal(
-                labels=['cv_accuracy','cv_precision','cv_recall','cv_f1'],
-                data = np.array([cv_accuracy,cv_precision,cv_recall,cv_f1]),
-                signal_info = None
+        self.validator = KFoldValidator(
+            kfold=self.config.kfold,
+            shuffle=self.config.shuffle,
+            random_state=random_state
+        )
+
+class RepeatedKFoldNodew(Validator):
+    
+    title='Repeated K-Fold'
+    version = '0.1'
+    
+    
+class StratifiedKFoldNode(ValidatorNode):
+    
+    title='Stratified K-Fold'
+    version = '0.1'
+    
+    inner_config_type = KFoldNode.Config
+    
+    init_outputs = [
+        PortConfig('v', allowed_data=StratifiedKFoldValidator)
+    ]
+    
+    @property
+    def config(self) -> KFoldNode.Config:
+        return self._config
+    
+    def init(self):
+        random_state = None
+        if self.config.random_state == 'manual':
+            random_state = self.config.random_state_val
+            
+        self.validator = StratifiedKFoldValidator(
+            kfold=self.config.kfold,
+            shuffle=self.config.shuffle,
+            random_state=random_state
+        )
+
+class LeaveOneOutNode(ValidatorNode):
+    
+    title='Leave One Out'
+    version='0.1'
+    
+    init_outputs = [
+        PortConfig('v', allowed_data=LeaveOneOutValidator)
+    ]
+    
+    def init(self):
+        self.validator = LeaveOneOutValidator()
+
+class ShuffleSplitNode(ValidatorNode):
+    
+    title='Shuffle Split'
+    version='0.1'
+    
+    class Config(NodeTraitsConfig):
+        splits: int = CX_Int(10)
+        test_percent: float = CX_Float(1)
+        random_state: str = Enum('auto', 'manual')
+        random_state_val: int = CX_Int(0)
+    
+    init_outputs = [
+        PortConfig('v', allowed_data=ShuffleSplitValidator)
+    ]
+    
+    @property
+    def config(self) -> Config:
+        return self._config
+    
+    def init(self):
+        
+        random_state = None
+        if self.config.random_state == 'manual':
+            random_state = self.config.random_state_val
+        
+        self.validator = ShuffleSplitValidator(
+            n_splits=self.config.splits,
+            test_percent=self.config.test_percent,
+            random_state=random_state
+        )
+    
+class ClassifierValidation(Node):
+    
+    title = 'Classifier Validation'
+    version = '0.1'
+    
+    class Config(NodeTraitsConfig):
+        metrics: Sequence[str] = List(Enum(ClassificationMetrics))
+        num_models = CX_Int(1)
+
+        @observe('num_models', post_init=True)
+        def _fix_models(self, ev):
+            min_ports = 2
+            check = self.num_models - self.node.num_inputs + min_ports
+            if check == 0:
+                return
+
+            num_inputs = self.node.num_inputs
+            diff = self.num_models - num_inputs + min_ports
+
+            if diff > 0:
+                for i in range(diff):
+                    self.node.create_input(
+                        PortConfig(
+                            f'm{i+num_inputs-min_ports}', 
+                            allowed_data=BaseClassifier
+                        )
+                    )
+                    self.node.create_output(
+                        PortConfig(f'm{i+num_inputs-min_ports}')
+                    )
+            else:
+                diff = abs(diff)
+                for i in range(diff):
+                    self.node.delete_input(self.node.num_inputs-1)
+                    self.node.delete_output(self.node.num_outputs-1)
+    
+    init_inputs = [
+        PortConfig('v', allowed_data=Validator),
+        PortConfig('feat', allowed_data=FeatureSignal),
+        PortConfig('m0', allowed_data=BaseClassifier)
+    ]
+    
+    init_outputs = [
+        PortConfig('m0')
+    ]
+    @property
+    def config(self) -> Config:
+        return self._config
+    
+    def init(self):
+        self.validator: Validator = None
+        self.feat_sig: FeatureSignal = None
+        
+    def update_event(self, inp=-1):
+        
+        if inp == 0:
+            self.validator: Validator = self.input(0)
+        elif inp == 1:
+            self.feat_sig: FeatureSignal = self.input(1)
+        
+        if not self.validator or not self.feat_sig:
+            return
+        
+        self.progress = ProgressState(value=-1, message=f'Validating...')
+        
+        for i in range(self.num_outputs):
+            model: BaseClassifier = self.input(i + 2)
+            res, _ = self.validator.score(
+                self.feat_sig,
+                model,
+                self.config.metrics
             )
             
-            self.set_output(0,metrics_signal)
+            self.progress = None
+            
+            info = f"{type(model).__name__}: {res}"
+            print(info)
+            self.logger.info(info)
+            self.set_output(i, res)
 
 class SaveModel(Node):
     title = 'Save Model'
@@ -377,8 +544,6 @@ class TestNode(Node):
             )
             
             self.set_output(0,metrics_signal)
-
-
 
 class ClassifyNode(Node):
     title = 'Classify'

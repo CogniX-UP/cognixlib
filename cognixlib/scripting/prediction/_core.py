@@ -81,7 +81,7 @@ class Validator(ABC):
         signal: FeatureSignal, 
         predictor: BasePredictor = None,
         metrics: Sequence[str] = None,
-    ) -> Mapping:
+    ) -> tuple[Mapping, Mapping]:
         """Returns the scores for various scoring functions."""
         pass
     
