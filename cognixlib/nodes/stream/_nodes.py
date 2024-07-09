@@ -307,5 +307,65 @@ class LSLOutputNode(Node):
                 data = signal.data[:,i]
                 self.stream_out.push_sample(data)
         
+
+class StreamFromRecordNode(FrameNode):
+    
+    class Config(NodeTraitsConfig):
+        mode: str = Enum('samples','seconds',desc='Mode of streaming data')
+        samples: int = CX_Int(visible_when = "mode == 'samples'")
+        seconds: float = CX_Float(visible_when = "mode == 'seconds'")
+
+    title = 'Mockup Stream'
+    version = '0.1'
+    init_inputs = [PortConfig(label='data',allowed_data=StreamSignal)]
+    init_outputs = [PortConfig(label='signal',allowed_data=StreamSignal)]
+
+    @property
+    def config(self) -> StreamFromRecordNode.Config:
+        return self._config
+
+    def init(self):
+        self.mode = self.config.mode
+        self.samples = self.config.samples
+        self.seconds = self.config.seconds
+        self.acum = 0
+        self.signal_input = None
+        self.samp_freq = 0
+        self.cur_samples = 0
+        self.total_samples = 0
+        self._is_finished = False
         
+    def stop(self):
+        self.signal_input = None
+        self._is_finished = False
+        self.acum = 0
+
+    def update_event(self,inp=-1):
+        self.signal_input: StreamSignal = self.input(0)
+        if not self.signal_input:
+            return 
+
+        self.samp_freq = self.signal_input.info.nominal_srate 
+        self.total_samples = len(self.signal_input.timestamps)
+
+    def frame_update_event(self):
+        if not self.signal_input:
+            return 
         
+        if self.mode == 'samples' and self.samples:
+            self.cur_samples = self.samples
+            
+        if self.mode == 'seconds' and self.seconds:
+            self.cur_samples = int(self.samp_freq * self.seconds)
+    
+        if self.cur_samples + self.acum <= self.total_samples:
+            self.set_output(0,self.signal_input[self.acum : self.cur_samples + self.acum, :])
+            self.acum += self.cur_samples
+
+        elif self.cur_samples + self.acum > self.total_samples and self.acum < self.total_samples:
+            self.set_output(0,self.signal_input[self.acum : (self.total_samples - self.acum) + self.acum, :])
+            self.acum += self.total_samples - self.acum
+            
+        if self.acum >= self.total_samples:
+            self._is_finished = True
+            self.acum = 0
