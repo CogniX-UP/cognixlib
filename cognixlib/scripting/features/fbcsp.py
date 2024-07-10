@@ -47,7 +47,7 @@ class FBCSP_Binary:
         self._fitted = False
         # per band CSP projection matrices
         # rows of single W: stationary spatial filters
-        # columns of single W^T: common spatial patterns 
+        # columns of single W^-1: common spatial patterns 
         self._w_per_band: list[np.ndarray] = None
         # {class: band[trial]}
         self._classes_csp: dict[str, list[np.ndarray]] = None
@@ -322,22 +322,23 @@ class FBCSP_Binary:
     def _create_feat_label(self, band: int, feat_index: int):
         return f'fcsp_band{band}_f{feat_index}'     
     
-    def _log_var(self, trials: np.ndarray):
+    def _log_var(self, z: np.ndarray):
         """
         Calculates the logarithm and variance of a trial matrix. The trials should
         be csp filtered. Only the first and last :meth:`m` of the CSP filtered signal
         will be considered.
         """
         
-        trials = np.concatenate(
+        zp = np.concatenate(
             [
-                trials[:, :self._m, :],
-                trials[:, -self._m:, :]
+                z[:, :self._m, :],
+                z[:, -self._m:, :]
             ],
             axis=1
         )
         
-        features = np.var(trials, 2)
+        # zp = (trials, 2*m, samples)
+        features = np.var(zp, 2) # => (trials, 2*m)
         features = np.log(features)
         return features   
     
@@ -365,7 +366,7 @@ class FBCSP_Binary:
     
     def _apply_spatial_filter(
         self, 
-        trials: Sequence[Signal | np.ndarray] | np.ndarray , 
+        trials: Sequence[Signal | np.ndarray] | np.ndarray, 
         W: np.ndarray
     ) -> np.ndarray:
         
@@ -374,12 +375,13 @@ class FBCSP_Binary:
         n_trials = len(trials)
         first_data = trials[0]
         _, n_channels = first_data.shape
-        n_samples = 0
+        n_samples = -1
         if isinstance(trials, np.ndarray):
-            n_samples = trials.shape[1]
+            n_samples = trials.shape[0]
         else:
             for trial in trials:
-                n_samples += trial.shape[0]
+                t_samples, _ = trial.shape
+                n_samples = max(n_samples, t_samples)
         
         trials_csp = np.zeros((n_trials, n_channels, n_samples))
         
@@ -393,7 +395,9 @@ class FBCSP_Binary:
             # change it to channels x samples
             trial = trial.T
             # we're storing all the trials in one single matrix
-            trials_csp[i, :, count:trial_samples + count] = W.dot(trial)
+            z = W @ trial
+            _, samples = z.shape
+            trials_csp[i, :, 0:samples] = z
             count += trial_samples
         
         return trials_csp
