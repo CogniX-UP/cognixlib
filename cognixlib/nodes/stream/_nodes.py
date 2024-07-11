@@ -294,18 +294,13 @@ class LSLOutputNode(Node):
             self.stream_out = StreamOutlet(self.stream_info)
             print(f"Created an outlet with {chann_count}")
         
-        
         if is_time_sig:
             self.stream_out.push_chunk(
                 signal.data,
                 signal.timestamps,
             )
         else:
-            
-            cols = signal.data.shape[1]
-            for i in range(cols):
-                data = signal.data[:,i]
-                self.stream_out.push_sample(data)
+            self.stream_out.push_chunk(signal.data)
         
 
 class StreamFromRecordNode(FrameNode):
