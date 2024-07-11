@@ -105,7 +105,13 @@ class XDFWriterNode(Node):
             signal: StreamSignal = self.input(inp)
             if signal is None:
                 return False
-            if 'Marker' in signal.info.signal_type and (signal.info.nominal_srate != IRREGULAR_RATE or signal.info.data_format != lsl_to_str[cf_string]):
+            if (
+                'Marker' in signal.info.signal_type and 
+                (
+                    signal.info.nominal_srate != IRREGULAR_RATE or 
+                    signal.info.data_format != lsl_to_str[cf_string]
+                )
+            ):
                 return 
             
             self.inlets[inp] = {

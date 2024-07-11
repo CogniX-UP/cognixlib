@@ -265,7 +265,7 @@ class LSLOutputNode(Node):
         is_time_sig = isinstance(signal, TimeSignal)
         is_label_sig = isinstance(signal, LabeledSignal)
         
-        if not self.stream_out:
+        if self.stream_out is None:
             dtype = signal.data.dtype
             chann_count = (
                 len(signal.labels)
@@ -292,7 +292,7 @@ class LSLOutputNode(Node):
                         channel.append_child_value('unit', self.config.unit_type)
             
             self.stream_out = StreamOutlet(self.stream_info)
-            print(f"Created an outlet with {chann_count} channels")
+            print(f"Created an outlet with {chann_count}")
         
         
         if is_time_sig:

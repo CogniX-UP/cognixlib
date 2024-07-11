@@ -549,6 +549,8 @@ class ClassifyNode(Node):
     title = 'Classify'
     version = '0.1'
 
+    class Config(NodeTraitsConfig):
+        mode: str = Enum('class', 'probabs', desc='whether to output class result or classes probabilities')
     init_inputs = [
         PortConfig(label='data', allowed_data=LabeledSignal), 
         PortConfig(label='model',allowed_data=BaseClassifier)
@@ -557,6 +559,10 @@ class ClassifyNode(Node):
         PortConfig(label='predictions',allowed_data=LabeledSignal)
     ]
 
+    @property
+    def config(self) -> Config:
+        return self._config
+    
     def init(self):
 
         self.signal = None
@@ -569,12 +575,9 @@ class ClassifyNode(Node):
         if inp == 1:self.model:BaseClassifier = self.input(inp)
 
         if self.signal and self.model:
-            predictions = self.model.predict(signal=self.signal)
+            if self.config.mode == 'class':
+                predictions = self.model.predict(self.signal)
+            else:
+                predictions = self.model.predict_proba(self.signal)
             
-            metrics_signal = LabeledSignal(
-                labels=['prediction'],
-                data = np.array([predictions]),
-                signal_info = None
-            )
-            
-            self.set_output(0,metrics_signal)
+            self.set_output(0, predictions)

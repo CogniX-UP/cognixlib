@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from abc import ABC
 
-from ..data.signals import Signal, FeatureSignal
+from ..data.signals import Signal, FeatureSignal, LabeledSignal
 from dataclasses import dataclass
 from collections.abc import Sequence, Set, Mapping
 from enum import IntFlag
@@ -50,7 +50,7 @@ class BaseClassifier(BasePredictor):
         pass
     
     @abstractmethod
-    def predict(self, signal: Signal) -> Sequence[str]:
+    def predict(self, signal: Signal) -> LabeledSignal[str | int]:
         """
         Each row of the :code:`Signal` is a data point to
         predict a class for.
@@ -61,7 +61,7 @@ class BaseClassifier(BasePredictor):
         pass
 
     @abstractmethod
-    def predict_proba(self, signal: Signal):
+    def predict_proba(self, signal: Signal) -> LabeledSignal[float]:
         pass
 
 class Validator(ABC):

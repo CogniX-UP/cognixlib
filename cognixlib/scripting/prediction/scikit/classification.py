@@ -12,7 +12,7 @@ from enum import StrEnum
 import joblib
 import numpy as np
 
-from ...data.signals import FeatureSignal, Signal
+from ...data.signals import FeatureSignal, Signal, LabeledSignal
 from .._core import BasePredictor, BaseClassifier
 
 from typing import Literal
@@ -85,14 +85,27 @@ class SciKitClassifier(BaseClassifier):
 
         # In scikit-learn, X and Y can be python lists, dataframes or numpy arrays
         self.model.fit(X, y)
+        self._classes = self.model.classes_
 
-    def predict(self, signal: Signal):
+    def predict(self, signal: Signal) -> LabeledSignal[str | int]:
         X = signal.data
-        return self.model.predict(X)
+        predictions: np.ndarray = self.model.predict(X)
+        res = LabeledSignal(
+            labels=['prediction'],
+            data=predictions.T,
+            signal_info=None
+        )
+        return res
 
-    def predict_proba(self, signal: Signal):
+    def predict_proba(self, signal: Signal) -> LabeledSignal[float]:
         X = signal.data
-        return self.model.predict_proba(X)
+        probas_per_class: np.ndarray = self.model.predict_proba(X)
+        res = LabeledSignal(
+            labels=self._classes,
+            data=probas_per_class,
+            signal_info=None,
+        )
+        return res
       
     def save(self, path:str):
         path = f"{path}.joblib"
@@ -101,6 +114,7 @@ class SciKitClassifier(BaseClassifier):
     def load(self, path:str):
         path = f"{path}.joblib"
         self._model = joblib.load(path)
+        self._classes = self._model.classes_
 
 class SVMClassifier(SciKitClassifier):
     """Wrapper for the `SVM <https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html#sklearn.svm.SVC>`_ in scikit"""
