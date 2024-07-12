@@ -299,11 +299,7 @@ class LSLOutputNode(Node):
                 signal.timestamps,
             )
         else:
-            
-            cols = signal.data.shape[1]
-            for i in range(cols):
-                data = signal.data[:,i]
-                self.stream_out.push_sample(data)
+            self.stream_out.push_chunk(signal.data)
         
 
 class StreamFromRecordNode(FrameNode):
