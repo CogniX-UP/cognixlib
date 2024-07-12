@@ -339,6 +339,8 @@ class FBCSP_Binary:
         
         # zp = (trials, 2*m, samples)
         features = np.var(zp, 2) # => (trials, 2*m)
+        sum_features = np.sum(features, axis=1, keepdims=True)
+        features = features / sum_features
         features = np.log(features)
         return features   
     

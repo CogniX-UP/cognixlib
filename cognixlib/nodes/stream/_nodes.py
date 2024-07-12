@@ -292,8 +292,6 @@ class LSLOutputNode(Node):
                         channel.append_child_value('unit', self.config.unit_type)
             
             self.stream_out = StreamOutlet(self.stream_info)
-            print(f"Created an outlet with {chann_count}")
-        
         
         if is_time_sig:
             self.stream_out.push_chunk(
