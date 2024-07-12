@@ -23,7 +23,7 @@ import json
 
 from collections.abc import Mapping
 
-from ...scripting.file.xdf import XDFWriter
+from ...scripting.file.xdf import XDFWriter, XDFHeader
 from ...scripting.data import StreamSignal
 from ...scripting.data.conversions import get_lsl_format, lsl_to_str
 from ..stream import LSLSignalInfo
@@ -75,9 +75,7 @@ class XDFWriterNode(Node):
     def init(self):
         self.inlets: dict[int, StreamInlet] = {}
         self.start_time = local_clock()
-        self.write_header: set[int] = set()
-        self.timestamps: dict[int, list[np.ndarray]] = {}
-        self.samples_count: dict[int, int] = {}        
+        self.stream_ids: set[int] = set()     
         dir = self.config.directory
         filename = self.var_val_get(self.config.varname) 
         if not filename or isinstance(filename, str) == False:
@@ -86,21 +84,14 @@ class XDFWriterNode(Node):
         if dir: 
             self.path = os.path.join(dir, filename)
         
-        self.xdfile = XDFWriter(f'{self.path}.xdf', True)
+        self.xdfile = XDFWriter(self.path, True)
     
     def stop(self):
-        for i in self.inlets:
-            self.xdfile.write_footer(
-                streamid=i,
-                first_time=self.timestamps[i][0][0],
-                last_time=self.timestamps[i][-1][-1],
-                samples_count=self.samples_count[i]
-            )
         self.xdfile.close_file()
     
     def update_event(self,inp=-1):
           
-        if inp not in self.write_header:
+        if inp not in self.stream_ids:
             
             signal: StreamSignal = self.input(inp)
             if signal is None:
@@ -114,21 +105,17 @@ class XDFWriterNode(Node):
             ):
                 return 
             
-            self.inlets[inp] = {
-                'stream_name':signal.info.name,
-                'stream_type':signal.info.signal_type,
-                'channel_count':len(signal.labels),
-                'nominal_srate':signal.info.nominal_srate,
-                'channel_format':signal.info.data_format,
-                'time_created':self.start_time,
-                'channels':signal.labels.tolist() # TODO should this be a list according to XDF and LSL standards?
-            }
+            header = XDFHeader(
+                name=signal.info.name,
+                type_=signal.info.signal_type,
+                channels=signal.labels.tolist(),
+                nominal_srate=signal.info.nominal_srate,
+                channel_format=signal.info.data_format,
+                time_created=self.start_time
+            )
 
-            self.timestamps[inp] = []
-            self.samples_count[inp] = 0
-            self.xdfile.write_header(inp, self.inlets[inp])
-
-            self.write_header.add(inp)
+            self.xdfile.add_stream(inp, header)
+            self.stream_ids.add(inp)
         
         signal: StreamSignal = self.input(inp)
         if signal is None:
@@ -137,14 +124,10 @@ class XDFWriterNode(Node):
         samples = np.array(signal.data)
         timestamps = np.array(signal.timestamps)
         
-        self.timestamps[inp].append([timestamps[0], timestamps[-1]])
-        self.samples_count[inp] += len(timestamps)
-        
         self.xdfile.write_data(
             inp,
             samples,
-            timestamps,
-            self.inlets[inp]['channel_count']
+            timestamps
         )
           
 class XDFImporterNode(Node):

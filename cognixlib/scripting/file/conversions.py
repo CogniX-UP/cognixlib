@@ -7,6 +7,9 @@ import struct
 import numpy as np
 import io
 
+from collections.abc import Sequence
+from typing import Any
+
 def find_python_list_format(format_:str):
     if format_=="int8":
         return '<B'
@@ -45,7 +48,7 @@ def write_little_endian(dst: io.BytesIO, value: int|float, specific_type: str):
     dst.write(binary_value)
 
 def write_fixlen_int(dst: io.BytesIO, val:int):
-    binary_value_size = struct.pack('<b',struct.calcsize('i'))
+    binary_value_size = struct.pack('<b', struct.calcsize('i'))
     dst.write(binary_value_size)
      
 def write_varlen_int(dst, val):
@@ -60,34 +63,35 @@ def write_varlen_int(dst, val):
         dst.write(struct.pack('<b',8))
         write_little_endian(dst,int(val),"uint64_t")
     
-def write_sample_values(dst:io.BytesIO, sample:np.ndarray | list, length_of_channels:int , fm : str):
-    if isinstance(sample,list):
-        if type(sample[0])!=str and type(sample[0])!=list:
+def write_chunk_values(
+    dst:io.BytesIO, 
+    sample:np.ndarray | Sequence[Sequence[Any]] | str, 
+    length_of_channels:int, 
+    fm : str
+):
+    
+    if isinstance(sample, str):
+        write_varlen_int(dst,len(sample))
+        dst.write(bytes(sample,'utf-8'))
+    
+    elif isinstance(sample, Sequence):
+        if type(sample[0]) != str and type(sample[0]) != list:
             value = b''
             binary_format = find_python_list_format(fm)
             for i in range(length_of_channels):
-                value += struct.pack(binary_format,sample[i])
+                value += struct.pack(binary_format, sample[i])
             dst.write(value)
-            return sample[length_of_channels:]
         else:
             for i in range(length_of_channels):
-                write_varlen_int(dst,len(sample[i]))
-                dst.write(bytes(sample[i],'utf-8'))
-            return sample[length_of_channels:]   
+                write_varlen_int(dst, len(sample[i]))
+                dst.write(bytes(sample[i],'utf-8'))   
     
-    if isinstance(sample,np.ndarray):
+    elif isinstance(sample, np.ndarray):
         if sample.dtype in formats:
             binary_value = sample[:length_of_channels].tobytes()
             dst.write(binary_value)
-            return sample[length_of_channels:]
         else:
             for i in range(length_of_channels):
-                write_varlen_int(dst,len(sample[i]))
-                dst.write(bytes(sample[i],'utf-8'))  
-            return sample[length_of_channels:]
-    
-    if isinstance(sample,str):
-        write_varlen_int(dst,len(sample))
-        dst.write(bytes(sample,'utf-8'))
-        return 
+                write_varlen_int(dst, len(sample[i]))
+                dst.write(bytes(sample[i],'utf-8'))
         

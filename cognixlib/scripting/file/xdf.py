@@ -2,11 +2,17 @@
 
 import io, time, struct, threading
 import numpy as np
-import xmltodict
 
-from ...scripting.file.conversions import *
+from collections.abc import Sequence
+from xml.etree import ElementTree
+from xml.etree.ElementTree import Element, SubElement
 from enum import IntEnum
 from pylsl import local_clock
+from dataclasses import dataclass
+
+from ...scripting.file.conversions import *
+
+from typing import Any
 
 def _write_ts(out:io.StringIO,ts:float,specific_format):
     if (ts==0):
@@ -17,21 +23,93 @@ def _write_ts(out:io.StringIO,ts:float,specific_format):
 
 class ChunkTag(IntEnum):
     """Enum Indicating what the -to be written- chunk is."""
+    UNDEFINED = 0
     FILE_HEADER = 1
     STREAM_HEADER = 2
     SAMPLES = 3
     CLOCK_OFFSET = 4
     BOUNDARY = 5
     STREAM_FOOTER = 6
-    UNDEFINED = 0
+    
+class XDFHeader:
+    
+    def __init__(
+        self,
+        name: str,
+        type_: str,
+        channels: Sequence[str],
+        nominal_srate: int,
+        channel_format: str,
+        time_created,
+        channel_infos: dict[str, Any] = None
+    ):
+        self.name = name
+        self.type = type_
+        self.channels = channels
+        self.nominal_srate = nominal_srate
+        self.channel_format = channel_format
+        self.time_created = time_created
+        self.channel_infos = channel_infos
+        
+    @property
+    def channel_count(self):
+        return len(self.channels)
+    
+    def to_xml_str(self) -> str:
+        info = Element('info')
+        
+        name = SubElement(info, 'name')
+        name.text = self.name
+        
+        type_ = SubElement(info, 'type')
+        type_.text = str(self.type)
+        
+        ch_count = SubElement(info, 'channel_count')
+        ch_count.text = str(self.channel_count)
+        
+        channels = SubElement(info, 'channels')
+        for ch in self.channels:
+            channel = SubElement(channels, 'channel')
+            label_el = SubElement(channel, 'label')
+            label_el.text = str(ch)
+            
+            if not self.channel_infos:
+                continue
+            
+            for key, val in self.channel_infos.items():
+                child = SubElement(channels, key)
+                child.text = str(val)
+        
+        n_srate = SubElement(info, 'nominal_srate')
+        n_srate.text = str(self.nominal_srate)
+        
+        chann_format = SubElement(info, 'channel_format')
+        chann_format.text = str(self.channel_format)
+        
+        created_at = SubElement(info, 'created_at')
+        created_at.text = self.time_created
+        
+        xml_str = ElementTree.tostring(info, encoding='unicode', method='xml')
+        return f"<?xml version=\"1.0\"?>{xml_str}"
      
 class XDFWriter:
     """A class that allows the writing of data in the XDF format"""
     
-    def __init__(self, filename: str ,on_init_open: bool = False):
-        self.filename = filename 
+    @dataclass
+    class _StreamInfo:
+        header: XDFHeader = None
+        first_time: float = -1.0
+        last_time: float = -1.0
+        n_samples: int = 0
+                 
+    def __init__(self, filename: str, on_init_open: bool = False):
+        
+        self.filename = filename
+        if not filename.endswith('.xdf'):
+            self.filename = f'{filename}.xdf'
+             
         self.write_mut = threading.Lock()
-        self.stream_ids_formats = dict()
+        self._stream_infos: dict[int, XDFWriter._StreamInfo] = {}
         
         if on_init_open:
             self.open_file_(self.filename)
@@ -53,162 +131,142 @@ class XDFWriter:
         time_now = time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime())
         header += "\n    <datetime>" + time_now + "</datetime>"
         header += "\n  </info>"
-        self._write_chunk(ChunkTag.FILE_HEADER, header, None)
+        self._write_chunk(ChunkTag.FILE_HEADER, None, header)
     
     def close_file(self):
         """Closes the file."""
+        for sid in self._stream_infos.keys():
+            self._write_footer(sid)
         self._file.close()
         self._file = None
 
-    def write_header(self, streamid: int, stream_id_infos: dict):
-        """Writes the header of a stream for the XDF."""
+    def add_stream(self, streamid: int, header: XDFHeader):
+        """Creates a stream for the XDF."""
         
-        header = ("<?xml version=\"1.0\"?><info><name>{}</name><type>{}</type><channel_count>{}</channel_count><channels>{}</channels><nominal_srate>{}</nominal_srate> \
-                <channel_format>{}</channel_format><created_at>{}</created_at></info>".format(stream_id_infos['stream_name'],stream_id_infos['stream_type'],stream_id_infos['channel_count'],\
-                    stream_id_infos['channels'],stream_id_infos['nominal_srate'],stream_id_infos['channel_format'],stream_id_infos['time_created']))
-        self._write_stream_header(streamid, header)
+        xml_str = header.to_xml_str()
+        self._stream_infos[streamid] = XDFWriter._StreamInfo(header=header)
+        self._write_chunk(ChunkTag.STREAM_HEADER, streamid, xml_str)
         self._write_boundary_chunk()
     
     def write_data(
         self,
         streamid: int,
-        data_content: list | np.ndarray,
-        timestamps: list | np.ndarray,
-        channel_count: int=0
+        data_content: Sequence | np.ndarray,
+        timestamps: Sequence[float] | np.ndarray,
     ):
         """Writes the data for a stream for the XDF."""
-        if isinstance(data_content,list):
-            self._write_data_chunk(
-                streamid,
-                timestamps,
-                data_content, 
-                channel_count
-            )
-        else: 
-            self._write_data_chunk_nested(
-                streamid,
-                timestamps,
-                data_content
-            )
+        
+        stream_info = self._stream_infos[streamid]
+        if stream_info.first_time < 0:
+            stream_info.first_time = timestamps[0]
+        stream_info.last_time = timestamps[-1]
+         
+        self._write_data_chunk(
+            streamid,
+            timestamps,
+            data_content
+        )
             
-    def write_footer(
+    def _write_footer(
         self, 
         streamid: int,
-        first_time: float,
-        last_time: float,
-        samples_count: int
     ):
         """Writes the footer of a stream for the XDF."""
-        footer = (
-                "<?xml version=\"1.0\"?><info><first_timestamp>{}</first_timestamp><last_timestamp>{}</last_timestamp><sample_count>{}</sample_count> \
-                <clock_offsets><offset><time>50979.7660030605</time><value>-3.436503902776167e-06</value></offset></clock_offsets></info>".format(first_time,last_time,samples_count)
-            )
+        
+        sinfo = self._stream_infos[streamid]
+        first_time = sinfo.first_time
+        last_time = sinfo.last_time
+        n_samples = sinfo.n_samples
+        
+        # TODO include clock offsets
+        
+        info = Element('info')
+        first_ts = SubElement(info, 'first_timestamp')
+        first_ts.text = str(first_time)
+        
+        last_ts = SubElement(info, 'last_timestamp')
+        last_ts.text = str(last_time)
+        
+        n_el = SubElement(info, 'sample_count')
+        n_el.text = str(n_samples)
+        
+        xml_str = ElementTree.tostring(info, encoding='unicode', method='xml')
+        footer = f"<?xml version=\"1.0\"?>{xml_str}"
+        
+        #footer = (
+        #        f"<?xml version=\"1.0\"?><info><first_timestamp>{first_time}</first_timestamp><last_timestamp>{last_time}</last_timestamp><sample_count>{n_samples}</sample_count></info>"
+                # <clock_offsets><offset><time>50979.7660030605</time><value>-3.436503902776167e-06</value></offset></clock_offsets></info>"
+        #    )
         self._write_boundary_chunk()
-        self._write_stream_offset(streamid, local_clock(),-0.5)
-        self._write_stream_footer(streamid, footer)
+        # Why was this -0.5 instead of 0?
+        self._write_stream_offset(streamid, local_clock(), 0)
+        self._write_chunk(ChunkTag.STREAM_FOOTER, streamid, footer)
     
-    def _write_chunk(self,tag:ChunkTag,content:bytes,streamid_p:int):
+    def _write_chunk(self,tag: ChunkTag, streamid: int, content: bytes):
         self.write_mut.acquire()
-        self._write_chunk_header(tag,len(content),streamid_p)
-        if isinstance(content,str):
+        self._write_chunk_header(tag, streamid, len(content))
+        if isinstance(content, str):
             content = bytes(content,'utf-8')
         self._file.write(content)
         self.write_mut.release()
-    
-    def _write_data_chunk_(self, streamid: int, timestamps: list, chunk: list | np.ndarray, n_samples: int, n_channels: int):
-        if n_samples == 0:return 
-        if len(timestamps)!=n_samples:
-            raise RuntimeError("Timestamp and samples count are mismatched")
-        else:##Generate [Samples] chunk contents...
-            out = io.BytesIO()
-            write_fixlen_int(out,0x0FFFFFFF)  
-            for ts in range(len(timestamps)):
-                _write_ts(out,timestamps[ts],"uint32_t")
-                chunk = write_sample_values(out,chunk,n_channels,self.stream_ids_formats[str(streamid)])
-            outstr = out.getvalue()
-            out.close()
-             ##// Replace length placeholder           
-            s = struct.pack('<I', n_samples)
-            outstr_string_version = struct.pack('b',outstr[0]) + s + outstr[1:]
-            self._write_chunk(ChunkTag.SAMPLES,outstr_string_version,streamid)
-    
-    def _write_data_chunk(self, streamid: int, timestamps: list, chunk: list | np.ndarray, n_channels: int):
-        if type(chunk)!=str and isinstance(chunk,np.ndarray):
-            assert len(timestamps) * n_channels == chunk.size
         
-        if type(chunk)!=str and isinstance(chunk,list):
-            assert len(timestamps) * n_channels == len(chunk)
-    
-        self._write_data_chunk_(streamid,timestamps,chunk,len(timestamps),n_channels)
-        
-    def _write_data_chunk_nested(self,streamid:int,timestamps:list,chunk:list|np.ndarray): ##### WRITE CHUNK DATA THAT ARE 2D ARRAY
-        if isinstance(chunk,list) and len(chunk) == 0:
-            return 
-        if isinstance(chunk,np.ndarray) and chunk.size == 0: 
-            return 
-        
-        n_samples = len(timestamps)
-        if isinstance(chunk, (np.ndarray, list)) and len(timestamps) != chunk.shape[0]:
-            raise RuntimeError("Timestamp and sample count are not the same")
+    def _write_data_chunk(
+        self,
+        streamid: int,
+        timestamps: Sequence[float],
+        chunk: Sequence | np.ndarray
+    ):  
+        if len(chunk == 0):
+            return
         
         if isinstance(chunk, np.ndarray):
-            n_channels = chunk.shape[1]
-        if isinstance(chunk,list): 
-            n_channels = len(chunk[0])
-        ## generate [Samples] chunk contents...
-        out = io.BytesIO()
-        write_fixlen_int(out,0x0FFFFFFF)    
-        for ts in range(len(timestamps)):
-            chunk_new = chunk[ts]
-            assert(n_channels == len(chunk_new))
-            _write_ts(out,timestamps[ts],"uint32_t")
-            write_sample_values(out, chunk_new, n_channels, self.stream_ids_formats[str(streamid)])
-            
-        outstr = out.getvalue()
-        out.close()
-        ##// Replace length placeholder           
-        s = struct.pack('<I', n_samples)
-        outstr_string_version = struct.pack('b',outstr[0]) + s + outstr[1:]
-        self._write_chunk(ChunkTag.SAMPLES,outstr_string_version,streamid)
-    
-    def _write_chunk_header(self,tag:ChunkTag,length:int,streamid_p:int):
-        length += struct.calcsize('h')
-        if streamid_p!=None:
-            length += len(struct.pack('i',streamid_p))
-        write_varlen_int(self._file,length)
-        write_little_endian(self._file,tag,"uint16_t")
-        if streamid_p!=None:
-            write_little_endian(self._file,streamid_p,"uint32_t")
+            n_samples, n_channels = chunk.shape
+        elif isinstance(chunk, Sequence): 
+            n_samples, n_channels = len(chunk), len(chunk[0])
         
-    def _write_stream_header(self, streamid: int, content: str, fm = None):
-        if not fm:
-            try:
-                header_data = xmltodict.parse(content)
-                self.stream_ids_formats["{}".format(streamid)] = header_data['info']['channel_format']
-                self._write_chunk(ChunkTag.STREAM_HEADER,content,streamid)
-                
-            except Exception as e:
-                print("Channel format is missing in xml !!!!!!")
-        else:
-            self.stream_ids_formats["{}".format(streamid)] = fm
-            self._write_chunk(ChunkTag.STREAM_HEADER,content,streamid)
-           
-    def _write_stream_footer(self, streamid: int, content: str):
-        self._write_chunk(ChunkTag.STREAM_FOOTER, content,streamid)
+        if len(timestamps != n_samples):
+            raise RuntimeError("Timestamp and sample count are not the same")
+        
+        self._stream_infos[streamid].n_samples += n_samples
+        ## Generate [Samples] chunk contents...
+        out = io.BytesIO()
+        write_fixlen_int(out, 0x0FFFFFFF)    
+        for i in range(len(timestamps)):
+            chunk_new = chunk[i]
+            assert(n_channels == len(chunk_new))
+            _write_ts(out, timestamps[i], "uint32_t")
+            fm = self._stream_infos[streamid].header.channel_format
+            write_chunk_values(out, chunk_new, n_channels, fm)    
+        out_bytes = out.getvalue()
+        out.close()
+        
+        ## Replace length placeholder           
+        s = struct.pack('<I', n_samples)
+        out_str = struct.pack('b', out_bytes[0]) + s + out_bytes[1:]
+        self._write_chunk(ChunkTag.SAMPLES, streamid, out_str)
     
-    def _write_stream_offset(self,streamid:int,time_now:time,offset:float):
+    def _write_chunk_header(self, tag: ChunkTag, streamid_p: int, length: int):
+        length += struct.calcsize('h')
+        if streamid_p is not None:
+            length += len(struct.pack('i', streamid_p))
+        write_varlen_int(self._file,length)
+        write_little_endian(self._file, tag, "uint16_t")
+        if streamid_p is not None:
+            write_little_endian(self._file, streamid_p, "uint32_t")
+    
+    def _write_stream_offset(self, streamid:int, time_now: float, offset: float):
         self.write_mut.acquire()
-        length = struct.calcsize('d') + struct.calcsize('d')
-        self._write_chunk_header(ChunkTag.CLOCK_OFFSET, length, streamid)
-        write_little_endian(self._file,time_now - offset, None)
+        length = 2 * struct.calcsize('d')
+        self._write_chunk_header(ChunkTag.CLOCK_OFFSET, streamid, length)
+        write_little_endian(self._file, time_now - offset, None)
         write_little_endian(self._file, offset, None)
         self.write_mut.release()
     
     def _write_boundary_chunk(self):
         self.write_mut.acquire()
         boundary_uuid = [0x43, 0xA5, 0x46, 0xDC, 0xCB, 0xF5, 0x41, 0x0F, 0xB3, 0x0E,0xD5, 0x46, 0x73, 0x83, 0xCB, 0xE4]
-        boundary_uuid = np.array(boundary_uuid,dtype=np.uint8)
-        self._write_chunk_header(ChunkTag.BOUNDARY, len(boundary_uuid), None)
+        boundary_uuid = np.array(boundary_uuid, dtype=np.uint8)
+        self._write_chunk_header(ChunkTag.BOUNDARY, None, len(boundary_uuid))
         self._file.write(boundary_uuid.tobytes())
         self.write_mut.release()
     

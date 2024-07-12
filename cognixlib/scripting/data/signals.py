@@ -469,7 +469,7 @@ class StreamSignalInfo(SignalInfo, StreamConfig):
     @property
     def data_format_lsl(self):
         """Returns the data format of this info, based on LSL convention."""
-        return lsl_to_np[self.data_format]
+        return str_to_lsl[self.data_format]
         
 class StreamSignal(TimeSignal[VType], LabeledSignal):
     """
