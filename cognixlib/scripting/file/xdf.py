@@ -87,7 +87,7 @@ class XDFHeader:
         chann_format.text = str(self.channel_format)
         
         created_at = SubElement(info, 'created_at')
-        created_at.text = self.time_created
+        created_at.text = str(self.time_created)
         
         xml_str = ElementTree.tostring(info, encoding='unicode', method='xml')
         return f"<?xml version=\"1.0\"?>{xml_str}"
@@ -198,8 +198,8 @@ class XDFWriter:
                 # <clock_offsets><offset><time>50979.7660030605</time><value>-3.436503902776167e-06</value></offset></clock_offsets></info>"
         #    )
         self._write_boundary_chunk()
-        # Why was this -0.5 instead of 0?
-        self._write_stream_offset(streamid, local_clock(), 0)
+        # Why was this -0.5 instead of 0.0? (if it's 0 an error occurs with struct.pack)
+        self._write_stream_offset(streamid, local_clock(), 0.0)
         self._write_chunk(ChunkTag.STREAM_FOOTER, streamid, footer)
     
     def _write_chunk(self,tag: ChunkTag, streamid: int, content: bytes):
@@ -216,15 +216,16 @@ class XDFWriter:
         timestamps: Sequence[float],
         chunk: Sequence | np.ndarray
     ):  
-        if len(chunk == 0):
-            return
         
+        if len(chunk) == 0:
+            return
+
         if isinstance(chunk, np.ndarray):
             n_samples, n_channels = chunk.shape
         elif isinstance(chunk, Sequence): 
             n_samples, n_channels = len(chunk), len(chunk[0])
-        
-        if len(timestamps != n_samples):
+
+        if len(timestamps) != n_samples:
             raise RuntimeError("Timestamp and sample count are not the same")
         
         self._stream_infos[streamid].n_samples += n_samples
@@ -254,7 +255,7 @@ class XDFWriter:
         if streamid_p is not None:
             write_little_endian(self._file, streamid_p, "uint32_t")
     
-    def _write_stream_offset(self, streamid:int, time_now: float, offset: float):
+    def _write_stream_offset(self, streamid: int, time_now: float, offset: float):
         self.write_mut.acquire()
         length = 2 * struct.calcsize('d')
         self._write_chunk_header(ChunkTag.CLOCK_OFFSET, streamid, length)

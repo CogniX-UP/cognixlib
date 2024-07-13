@@ -35,16 +35,17 @@ formats = [
 ]
 
 
-def write_little_endian(dst: io.BytesIO, value: int|float, specific_type: str):
+def write_little_endian(dst: io.BytesIO, value: int | float, specific_type: str):
+    # wont work with value=0 and specific_type=None, value should be 0.0 to work
     binary_format = ''
-    if isinstance(value,int)==True and specific_type == "uint16_t":
+    if isinstance(value, int) and specific_type == "uint16_t":
         binary_format = '<H'
-    if isinstance(value,int)==True and specific_type == "uint32_t":
+    if isinstance(value, int) and specific_type == "uint32_t":
         binary_format = '<I'
-    if isinstance(value,float)==True and (specific_type == "uint32_t" or specific_type == None): 
+    if isinstance(value, float) and (specific_type == "uint32_t" or specific_type == None): 
         binary_format = '<d'
     
-    binary_value = struct.pack(binary_format,value)
+    binary_value = struct.pack(binary_format, value)
     dst.write(binary_value)
 
 def write_fixlen_int(dst: io.BytesIO, val:int):

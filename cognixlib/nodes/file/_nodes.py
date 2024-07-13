@@ -121,8 +121,8 @@ class XDFWriterNode(Node):
         if signal is None:
             return
         
-        samples = np.array(signal.data)
-        timestamps = np.array(signal.timestamps)
+        samples = signal.data
+        timestamps = signal.timestamps
         
         self.xdfile.write_data(
             inp,
@@ -175,8 +175,8 @@ class XDFImporterNode(Node):
         self.stream_collection: dict[str, StreamSignal] = {}
         
         if path_file and os.path.exists(path_file):
-            streams , header = pyxdf.load_xdf(path_file)
-            
+            streams, header = pyxdf.load_xdf(path_file)
+
             for stream in streams:
                 stream_name = stream['info']['name'][0]
                 stream_type = stream['info']['type'][0]
@@ -187,9 +187,16 @@ class XDFImporterNode(Node):
                 stream_data = stream['time_series']
                 stream_timestamps = stream['time_stamps']
                 
-                stream_channels = stream['info']['channels'][0]
-                stream_channels = stream_channels.replace("'", '"')
-                stream_channels = json.loads(stream_channels)
+                if 'channels' in stream['info']:
+                    channels_list = stream['info']['channels'][0]['channel']
+                    stream_channels = [
+                        val['label'][0] for val in channels_list
+                    ]
+                else:
+                    stream_channels = [
+                        f"channel_{i}" for i in range(int(stream_channel_count))
+                    ]
+
                 self.logger.debug(stream_channels)
 
                 info = StreamInfo(
