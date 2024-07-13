@@ -70,7 +70,7 @@ class LDANode(ModelNode):
     version = '0.1'
 
     class Config(NodeTraitsConfig):
-        solver: str = Enum('svd','lsqr','eigen',desc='solver to use')
+        solver: str = Enum('svd','lsqr','eigen', desc='solver to use')
         shrinkage: str = Enum('auto', 'manual')
         shrinkage_value: float = Range(0.5, min=0.0, max=0.0, visible_when="shrinkage=='manual'", desc='shrinkage value')
 
@@ -83,7 +83,10 @@ class LDANode(ModelNode):
 
     def init(self):
         shrinkage = self.config.shrinkage
-        if shrinkage == 'manual':
+
+        if self.config.solver == 'svd':
+            shrinkage = None
+        elif shrinkage == 'manual':
             shrinkage = self.config.shrinkage_value
             
         self.model = LDAClassifier(
