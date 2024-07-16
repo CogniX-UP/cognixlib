@@ -20,6 +20,7 @@ from pylsl import (
 import os
 import pyxdf
 import json
+import polars
 
 from collections.abc import Mapping
 
@@ -260,8 +261,43 @@ class SelectStreamNode(Node):
             self.set_output(0,self.dict_streams[self.stream_name])
         
         
-    
+class DataFramePolarsNode(Node):
+    title = 'DataFrame Import (Polars)'
+    version = '0.1'
 
-                
+    class Config(NodeTraitsConfig):
+        directory: str = Directory(desc='the saving directory')
+        default_file_name: str = CX_Str('filename')
+        varname:str = CX_Str(
+            'file name',
+            desc='the file name will be extracted from this if there is a string variable'
+        )
+    
+    init_outputs = [PortConfig(label='DataFrame',allowed_data=polars.dataframe.frame.DataFrame)]
+
+    @property
+    def config(self) -> DataFramePolarsNode.Config:
+        return self._config
+
+    def init(self):
+        self.q = None
+        dir = self.config.directory
+        filename = self.var_val_get(self.config.varname)
+        if not filename or not isinstance(filename,str):
+            self.logger.debug(f"Variable wasn't a string!")
+            filename = self.config.default_file_name
+        path_file = None
+
+        if filename and dir:
+            path_file = os.path.join(dir,f'{filename}.csv')
+
+        if path_file and os.path.exists(path_file):
+            self.q = polars.scan_csv(path_file)
+        else:
+            self.logger.error(msg=f'The path {path_file} doesnt exist')
             
+    def update_event(self, inp=-1):
+        if self.q is not None:
+            df = self.q.collect()
+            self.set_output(0,df)
             

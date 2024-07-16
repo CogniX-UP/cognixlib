@@ -141,7 +141,7 @@ class LogisticRegressionNode(ModelNode):
     _LR = LogisticRegressionClassifier
     
     class Config(NodeTraitsConfig):
-        penalty: str = Enum(_LR.Penalty.L2, values=_LR.Penalty, desc='specify the norm of the penalty')
+        penalty: str = Enum(_LR.Penalty.L2, _LR.Penalty, desc='specify the norm of the penalty')
         tol:float = CX_Float(1e-4, desc='tolerance for stopping criteria')
         C:float = CX_Float(1.0, desc='inverse of regularization strength; must be a positive float')
         solver:str = Enum(_LR.Solver, desc='algorithm to use in the optimization problem')
@@ -410,14 +410,17 @@ class ClassifierValidation(Node):
     def init(self):
         self.validator: Validator = None
         self.feat_sig: FeatureSignal = None
+        self.results: dict = {}
         
     def update_event(self, inp=-1):
         
         if inp == 0:
             self.validator: Validator = self.input(0)
+            self.results = {}
         elif inp == 1:
             self.feat_sig: FeatureSignal = self.input(1)
-        
+            self.results = {}
+
         if not self.validator or not self.feat_sig:
             return
         
@@ -425,19 +428,22 @@ class ClassifierValidation(Node):
         
         for i in range(self.num_outputs):
             model: BaseClassifier = self.input(i + 2)
+            if model in self.results:
+                continue
             res, _ = self.validator.score(
                 self.feat_sig,
                 model,
                 self.config.metrics
             )
             
-            self.progress = None
-            
             info = f"{type(model).__name__}: {res}"
             print(info)
             self.logger.info(info)
+            self.results[model] = res
             self.set_output(i, res)
 
+        self.progress = None
+        
 class SaveModel(Node):
     title = 'Save Model'
     version = '0.1'
@@ -584,3 +590,4 @@ class ClassifyNode(Node):
                 predictions = self.model.predict_proba(self.signal)
             
             self.set_output(0, predictions)
+

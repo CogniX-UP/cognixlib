@@ -4,6 +4,7 @@ from sklearn import datasets
 from cognixcore import Node, FrameNode, PortConfig
 from cognixcore.config.traits import *
 from traitsui.api import EnumEditor
+import polars
 
 import logging
 from random import randint
@@ -211,8 +212,48 @@ class TestAddNode(Node):
             result += value
         self.set_output(0, result) 
         
+class ClassSelector(Node):
+    title = 'Class Selector'
+    version = '0.1'
+
+    class Config(NodeTraitsConfig):
+        num_classes: int = CX_Int(2,desc='number of classes of data')
+
+    init_inputs = [PortConfig('DataFrame',allowed_data=polars.dataframe.frame.DataFrame)]
+    init_outputs = [PortConfig('features',allowed_data=FeatureSignal)]
+
+    @property
+    def config(self) -> ClassSelector.Config:
+        return self._config
+
+
+    def init(self):
+        self.df = None
+        self.data_ = []
+        self.data_final = None
+        self.classes_index = dict()
+        self.num_classes = self.config.num_classes
+        self.start_index = 0 
     
-    
+    def update_event(self, inp=-1):
+        self.df = self.input(inp)
+        if self.df is not None:
+            for i in range(self.num_classes): 
+                data = self.df.filter(polars.col('category') == i).select(self.df.columns[1:-1]).to_numpy()
+                self.classes_index[i] = (self.start_index,self.start_index + data.shape[0])
+                self.data_.append(data)
+                self.start_index += data.shape[0]
+            self.data_final = np.concatenate(tuple(self.data_))
+            feature_signal = FeatureSignal(
+                labels = list(self.classes_index.keys()),
+                classes = self.classes_index,
+                data = self.data_final,
+                signal_info=None
+            )
+            self.set_output(0,feature_signal)
+
+            
+
 
             
 
