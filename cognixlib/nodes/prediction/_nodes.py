@@ -283,7 +283,7 @@ class KFoldNode(ValidatorNode):
             random_state=random_state
         )
 
-class RepeatedKFoldNodew(Validator):
+class RepeatedKFoldNode(Validator):
     
     title='Repeated K-Fold'
     version = '0.1'
